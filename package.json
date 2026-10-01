@@ -1,0 +1,19 @@
+{
+  "name": "abismo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "sim": "vitest run tests/sim.test.ts"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.3",
+    "vitest": "^3.2.7"
+  }
+}
