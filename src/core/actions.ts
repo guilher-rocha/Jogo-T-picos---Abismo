@@ -18,6 +18,8 @@ import { eat, quaff, readItem, zapWand } from './consumables';
 import { fire, throwItem } from './ranged';
 import { recalcPlayer } from './hero';
 import { hasStatus } from './status';
+import type { MonsterSpecial } from './monsterSpecial';
+import { monsterSpecial } from './monsterSpecial';
 
 export { THROW_RANGE, projectileGlyph } from './ranged';
 
@@ -41,7 +43,8 @@ export type Action =
   | { type: 'read'; itemId: number; targetId?: number }
   | { type: 'zap'; itemId: number; tx: number; ty: number }
   | { type: 'invoke' }
-  | { type: 'search' };
+  | { type: 'search' }
+  | { type: 'special'; kind: MonsterSpecial };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -70,6 +73,8 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       return actor.isPlayer ? fire(game, actor, { x: action.tx, y: action.ty }) : 0;
     case 'search':
       return actor.isPlayer ? doSearch(game) : 0;
+    case 'special':
+      return actor.isPlayer ? 0 : monsterSpecial(game, actor, action.kind);
     case 'invoke':
       if (!actor.isPlayer || !game.hasAmulet) {
         message(game, 'Você não tem nada para invocar.', 'darkGray');

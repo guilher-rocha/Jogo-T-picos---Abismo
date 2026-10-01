@@ -80,6 +80,12 @@ export interface Actor {
   effects?: StatusEffect[];
   /** Itens roubados/carregados por um monstro (caem quando ele morre). */
   loot?: Item[];
+  /** Modificadores procedurais aplicados (veloz, gigante...). */
+  mods?: string[];
+  /** Nome próprio (campeões): sem artigo nas mensagens. */
+  properName?: boolean;
+  /** Turno em que pode usar o sopro/magia de novo. */
+  specialReady?: number;
 }
 
 export function createActor(id: number, props: Partial<Actor> & Pick<Actor, 'templateId' | 'name' | 'glyph' | 'color'>): Actor {

@@ -3,12 +3,14 @@ import type { Actor } from './actor';
 /** "o rato", "a aranha", "você". */
 export function theName(a: Actor): string {
   if (a.isPlayer) return 'você';
+  if (a.properName) return a.name;
   return `${a.gender === 'f' ? 'a' : 'o'} ${a.name}`;
 }
 
 /** "um rato", "uma aranha". */
 export function aName(a: Actor): string {
   if (a.isPlayer) return 'você';
+  if (a.properName) return a.name;
   return `${a.gender === 'f' ? 'uma' : 'um'} ${a.name}`;
 }
 

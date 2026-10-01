@@ -3,9 +3,9 @@ import type { Terminal } from '../engine/terminal';
 import type { KeyInput } from '../data/keymap';
 import { directionForKey } from '../data/keymap';
 import type { Game } from '../core/game';
-import { level } from '../core/game';
+import { level, seesActor } from '../core/game';
 import type { Point } from '../core/map';
-import { distance, idx, inBounds } from '../core/map';
+import { distance, inBounds } from '../core/map';
 import { bresenham } from '../core/fov';
 import { describeCell } from './describe';
 import type { App } from './app';
@@ -30,7 +30,7 @@ export class TargetScreen implements Screen {
     const lvl = level(game);
     const p = game.player;
     this.targets = lvl.actors
-      .filter((a) => lvl.map.visible[idx(lvl.map, a.x, a.y)])
+      .filter((a) => seesActor(game, a))
       .sort((a, b) => distance(a, p) - distance(b, p))
       .map((a) => ({ x: a.x, y: a.y }));
     this.cursor = this.targets[0] ?? { x: p.x, y: p.y };

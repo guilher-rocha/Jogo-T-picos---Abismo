@@ -9,8 +9,8 @@ import { ABILITY_RULES, abilityReadyIn, activeAbilities } from '../core/abilitie
 import type { MenuEntry } from './menuScreen';
 import { DirectionPrompt, MenuScreen } from './menuScreen';
 import type { Game } from '../core/game';
-import { isFree, level, message } from '../core/game';
-import { DIRS8, getTile, idx, isWalkable } from '../core/map';
+import { isFree, level, message, seesActor } from '../core/game';
+import { DIRS8, getTile, isWalkable } from '../core/map';
 import { Tile } from '../data/tiles';
 import { formatMessage } from '../core/log';
 import { itemsAt } from '../core/item';
@@ -250,7 +250,7 @@ export class GameScreen implements Screen, ItemHost {
   /** Corre numa direção até algo interessante acontecer. */
   private run(dx: number, dy: number): void {
     const g = this.game;
-    const visibleMonsters = () => level(g).actors.filter((a) => level(g).map.visible[idx(level(g).map, a.x, a.y)]).length;
+    const visibleMonsters = () => level(g).actors.filter((a) => seesActor(g, a)).length;
     const seen = visibleMonsters();
     const hp = g.player.hp;
     for (let step = 0; step < 80; step++) {

@@ -1,6 +1,6 @@
 import type { Action } from '../core/actions';
 import type { Game } from '../core/game';
-import { level } from '../core/game';
+import { level, seesActor } from '../core/game';
 import type { Actor } from '../core/actor';
 import type { Point } from '../core/map';
 import { DIRS8, distance, idx, inBounds, isWalkable } from '../core/map';
@@ -24,7 +24,7 @@ export function botAction(game: Game): Action {
   const p = game.player;
   const lvl = level(game);
   const map = lvl.map;
-  const visible = lvl.actors.filter((a) => map.visible[idx(map, a.x, a.y)]);
+  const visible = lvl.actors.filter((a) => seesActor(game, a));
   const hpFrac = p.hp / p.maxHp;
 
   // 1. Emergência: beber poção de cura.
@@ -217,5 +217,5 @@ function findUpgrade(game: Game): Action | null {
 /** Um monstro ameaça o jogador? (usado para interromper descanso/autoexplorar). */
 export function threatsVisible(game: Game): Actor[] {
   const lvl = level(game);
-  return lvl.actors.filter((a) => lvl.map.visible[idx(lvl.map, a.x, a.y)] && a.ai.state !== 'sleeping');
+  return lvl.actors.filter((a) => seesActor(game, a) && a.ai.state !== 'sleeping');
 }

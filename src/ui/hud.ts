@@ -1,8 +1,8 @@
 import type { Terminal } from '../engine/terminal';
 import type { Color } from '../engine/colors';
 import type { Game } from '../core/game';
-import { level } from '../core/game';
-import { distance, idx } from '../core/map';
+import { level, seesActor } from '../core/game';
+import { distance } from '../core/map';
 import { formatMessage } from '../core/log';
 import { healthDesc } from '../core/text';
 import { FOOT_Y, MAP_Y, MSG_LINES, SIDE_W, SIDE_X } from './layout';
@@ -89,7 +89,7 @@ export function drawSidebar(term: Terminal, game: Game): void {
 
   const lvl = level(game);
   const visible = lvl.actors
-    .filter((a) => lvl.map.visible[idx(lvl.map, a.x, a.y)])
+    .filter((a) => seesActor(game, a))
     .sort((a, b) => distance(a, p) - distance(b, p));
   if (visible.length) {
     term.print(x, y++, '── À vista ──', 'darkGray');

@@ -7,6 +7,7 @@ import type { MonsterTemplate } from '../data/monsters';
 import { MONSTERS } from '../data/monsters';
 import { Tile } from '../data/tiles';
 import { bfsDistances } from './dungeon/common';
+import { makeChampion, rollMonsterMods } from './monsterMods';
 
 /** Células de chão comum longe da escada de chegada (onde monstros podem nascer). */
 export function spawnPoints(level: Level, minDistFromUp: number): Point[] {
@@ -58,8 +59,14 @@ export function spawnMonsters(game: Game, level: Level, rng: RNG, depth: number)
     for (const p of spots) {
       occupied.add(idx(level.map, p.x, p.y));
       const mon = createMonster(game, t, p.x, p.y, rng);
+      rollMonsterMods(rng, mon, depth);
       level.actors.push(mon);
     }
     budget -= Math.max(1, t.level) * spots.length;
+  }
+  // Às vezes um campeão com nome próprio.
+  if (depth >= 3 && rng.chance(20) && level.actors.length) {
+    const candidates = level.actors.filter((a) => !a.flags.includes('unique') && !a.flags.includes('stationary'));
+    if (candidates.length) makeChampion(rng, rng.pick(candidates), depth);
   }
 }

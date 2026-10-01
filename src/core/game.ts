@@ -104,6 +104,14 @@ export function actorAt(game: Game, x: number, y: number): Actor | undefined {
   return level(game).actors.find((a) => a.x === x && a.y === y);
 }
 
+/** O jogador enxerga este monstro? (campo de visão + invisibilidade) */
+export function seesActor(game: Game, a: Actor): boolean {
+  const map = level(game).map;
+  if (map.visible[a.y * map.width + a.x] !== 1) return false;
+  if (a.flags.includes('invisible') && Math.max(Math.abs(a.x - game.player.x), Math.abs(a.y - game.player.y)) > 1) return false;
+  return true;
+}
+
 /** Célula livre: terreno passável e sem ninguém. */
 export function isFree(game: Game, x: number, y: number): boolean {
   return isWalkable(level(game).map, x, y) && !actorAt(game, x, y);

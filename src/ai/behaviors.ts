@@ -28,10 +28,28 @@ export function canSeePlayer(game: Game, m: Actor): boolean {
   return hasLineOfSight(level(game).map, m.x, m.y, p.x, p.y);
 }
 
+/** Ataques especiais (sopro, magia, disparo) quando o jogador está à vista. */
+function special(game: Game, m: Actor): Action | null {
+  const rng = game.rng.ai;
+  const d = distance(m, game.player);
+  if ((m.specialReady ?? 0) > game.turn || d > 8) return null;
+  if ((hasFlag(m, 'breathFire') || hasFlag(m, 'breathLightning')) && d >= 2 && rng.chance(30)) return { type: 'special', kind: 'breath' };
+  if (hasFlag(m, 'caster') && rng.chance(d === 1 ? 20 : 40)) return { type: 'special', kind: 'cast' };
+  if (hasFlag(m, 'archer') && d >= 2 && rng.chance(65)) return { type: 'special', kind: 'shoot' };
+  return null;
+}
+
 /** Decide a próxima ação de um monstro (máquina de estados simples). */
 export function decideAction(game: Game, m: Actor): Action {
   const rng = game.rng.ai;
   const sees = canSeePlayer(game, m);
+  // Fungos e geleias: só atacam quem encosta.
+  if (hasFlag(m, 'stationary')) {
+    const p = game.player;
+    if (m.ai.state !== 'sleeping' && sees && distance(m, p) === 1) return { type: 'move', dx: p.x - m.x, dy: p.y - m.y };
+    if (m.ai.state === 'sleeping' && sees && distance(m, p) <= 2) m.ai.state = 'hunting';
+    return { type: 'wait' };
+  }
 
   switch (m.ai.state) {
     case 'sleeping': {
@@ -62,6 +80,14 @@ export function decideAction(game: Game, m: Actor): Action {
       if (sees) {
         m.ai.lastSeen = { x: game.player.x, y: game.player.y };
         m.ai.lostTurns = 0;
+        // Muito ferido: pode fugir (menos chefes, mortos-vivos e confusos).
+        if (m.hp < m.maxHp * 0.2 && !hasFlag(m, 'boss') && !hasFlag(m, 'undead') && rng.chance(25)) {
+          m.ai.state = 'fleeing';
+          m.ai.fleeUntil = game.turn + 10;
+          return flee(game, m);
+        }
+        const sp = hasLineOfSight(level(game).map, m.x, m.y, game.player.x, game.player.y) ? special(game, m) : null;
+        if (sp) return sp;
       } else if (++m.ai.lostTurns > GIVE_UP) {
         m.ai.state = 'wandering';
         m.ai.lostTurns = 0;

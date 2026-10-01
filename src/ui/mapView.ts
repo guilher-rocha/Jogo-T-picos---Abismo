@@ -44,7 +44,8 @@ export function drawMap(term: Terminal, game: Game): void {
   }
   const tracking = playerTracking(game);
   for (const a of lvl.actors) {
-    if (map.visible[idx(map, a.x, a.y)]) term.set(MAP_X + a.x, MAP_Y + a.y, a.glyph, a.color);
+    const hidden = a.flags.includes('invisible') && Math.max(Math.abs(a.x - game.player.x), Math.abs(a.y - game.player.y)) > 1;
+    if (map.visible[idx(map, a.x, a.y)] && !hidden) term.set(MAP_X + a.x, MAP_Y + a.y, a.glyph, a.color, a.flags.includes('champion') ? 'darkRed' : 'black');
     else if (tracking) term.set(MAP_X + a.x, MAP_Y + a.y, a.glyph, a.color, 'darkGreen');
   }
   const p = game.player;

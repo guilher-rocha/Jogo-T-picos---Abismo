@@ -7,6 +7,7 @@ import { recalcPlayer, xpForLevel } from './hero';
 import { isEquipped, takeFromInventory } from './inventory';
 import { itemName } from './itemText';
 import { teleportActor } from './spells';
+import { generateItem } from '../gen/items';
 import type { Game } from './game';
 import { emit, level, message } from './game';
 import { aName, capitalize, theName } from './text';
@@ -90,6 +91,7 @@ function resolveAttack(game: Game, attacker: Actor, defender: Actor, atk: Attack
   else if (defender.isPlayer) message(game, `${capitalize(a)} ${atk.verb} você.`, 'lightRed');
   damage(game, defender, dmg, attacker);
   if (atk.effect && defender.hp > 0 && rng.chance(atk.effect.chance)) applyAttackEffect(game, attacker, defender, atk);
+  if (attacker.flags.includes('lifeSteal')) lifeSteal = 30;
   if (lifeSteal > 0) {
     const heal = Math.max(1, Math.round((dmg * lifeSteal) / 100));
     attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
@@ -179,6 +181,14 @@ export function killMonster(game: Game, monster: Actor, killer?: Actor): void {
   const lvl = level(game);
   lvl.actors = lvl.actors.filter((m) => m !== monster);
   addItem(lvl, createCorpse(game, monster));
+  // Campeões e chefes deixam um item mágico.
+  if (monster.flags.includes('champion') || monster.flags.includes('boss')) {
+    const loot = generateItem(game, game.rng.loot, game.depth + 2, ['weapon', 'armor', 'shield', 'helm', 'ring', 'amulet', 'launcher', 'cloak', 'boots']);
+    if (loot) {
+      if (loot.rarity === 'common') { loot.rarity = 'magic'; loot.identified = false; }
+      addItem(lvl, { ...loot, x: monster.x, y: monster.y });
+    }
+  }
   // Ladrões devolvem o que roubaram ao morrer.
   for (const it of monster.loot ?? []) addItem(lvl, { ...it, x: monster.x, y: monster.y });
   if (monster.flags.includes('unique')) {
