@@ -25,7 +25,8 @@ export type CommandName =
   | 'read'
   | 'zap'
   | 'fire'
-  | 'quiver';
+  | 'quiver'
+  | 'invoke';
 
 export interface Command {
   name: CommandName;
@@ -88,6 +89,7 @@ const SIMPLE_KEYS: Record<string, CommandName> = {
   z: 'zap',
   f: 'fire',
   Q: 'quiver',
+  '&': 'invoke',
   m: 'cast',
   Z: 'cast',
   A: 'abilities',
@@ -112,6 +114,7 @@ export const KEY_HELP: [string, string][] = [
   ['r / z', 'ler pergaminho / usar varinha'],
   ['t', 'arremessar item'],
   ['f / Q', 'disparar arma de disparo / escolher munição'],
+  ['&', 'invocar o Coração do Abismo (vitória)'],
   ['x ou ;', 'olhar (inspecionar o mapa)'],
   ['m ou Z', 'conjurar magia'],
   ['A', 'habilidades de classe'],

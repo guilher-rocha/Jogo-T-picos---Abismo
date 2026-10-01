@@ -31,7 +31,9 @@ export function decideAction(game: Game, m: Actor): Action {
   switch (m.ai.state) {
     case 'sleeping': {
       // Chance de acordar quando o jogador está à vista (e maior se estiver perto).
-      if (sees && rng.chance(distance(m, game.player) <= 3 ? 40 : 15)) {
+      // Chefes acordam assim que veem o jogador.
+      const wakeChance = hasFlag(m, 'boss') ? 100 : distance(m, game.player) <= 3 ? 40 : 15;
+      if (sees && rng.chance(wakeChance)) {
         m.ai.state = 'hunting';
         m.ai.lastSeen = { x: game.player.x, y: game.player.y };
         if (level(game).map.visible[m.y * level(game).map.width + m.x]) message(game, `${capitalize(theName(m))} acorda!`, 'orange');

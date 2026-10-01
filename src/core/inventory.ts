@@ -188,6 +188,11 @@ export function pickUp(game: Game, item: Item): boolean {
     message(game, `Você pega ${item.quantity} peças de ouro.`, 'gold');
     return true;
   }
+  if (item.baseId === 'amulet_abyss') {
+    game.hasAmulet = true;
+    message(game, 'Você ergue o Coração do Abismo. Ele pulsa em sua mão como um coração vivo!', 'lightMagenta');
+    message(game, 'Agora escape: volte ao andar 1 e suba a escada — ou invoque o Coração (tecla &) para voltar num instante.', 'gold');
+  }
   const added = addToInventory(game, item);
   if (!added) {
     message(game, 'Você não tem espaço na mochila.', 'lightGray');

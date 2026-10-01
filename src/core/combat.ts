@@ -82,6 +82,10 @@ export function killMonster(game: Game, monster: Actor, killer?: Actor): void {
   const lvl = level(game);
   lvl.actors = lvl.actors.filter((m) => m !== monster);
   addItem(lvl, createCorpse(game, monster));
+  if (monster.flags.includes('unique')) {
+    game.uniquesKilled.push(monster.templateId);
+    message(game, `${monster.name} foi derrotado!`, 'gold');
+  }
   if (killer?.isPlayer) {
     message(game, `Você mata ${theName(monster)}!`, 'yellow');
     game.hero.kills++;

@@ -32,6 +32,7 @@ import { monstersForDepth } from '../gen/populate';
 import { createGame, enterLevel } from '../core/world';
 import { playerAction } from '../core/turn';
 import { FOOT_Y, SIDE_X } from './layout';
+import { computeScore, highScoreEntry } from '../core/score';
 import { drawMap } from './mapView';
 import { drawMessages, drawSidebar } from './hud';
 
@@ -44,10 +45,17 @@ export class GameScreen implements Screen, ItemHost {
     this.anims.update(dt);
   }
 
+  private recorded = false;
+  private rank = -1;
+
   /** Executa uma ação do jogador e transforma o que aconteceu em animações. */
   act(action: Action): boolean {
     const ok = playerAction(this.game, action);
     playEvents(this.anims, this.game.events);
+    if (this.game.over && !this.recorded) {
+      this.recorded = true;
+      this.rank = this.app.recordScore(highScoreEntry(this.game));
+    }
     return ok;
   }
 
@@ -118,6 +126,9 @@ export class GameScreen implements Screen, ItemHost {
         break;
       case 'fire':
         fireCommand(this);
+        break;
+      case 'invoke':
+        this.act({ type: 'invoke' });
         break;
       case 'descend':
         this.act({ type: 'descend' });
@@ -266,10 +277,15 @@ export class GameScreen implements Screen, ItemHost {
     drawMessages(term, game);
     drawSidebar(term, game);
     if (this.app.debug) term.print(SIDE_X, FOOT_Y - 1, `seed ${game.seed}`, 'lightMagenta');
+    const score = computeScore(game).total;
+    const best = Math.max(score, this.app.highScores[0]?.score ?? 0);
+    term.print(0, FOOT_Y, `Pontos {white}${score}{/}   Recorde {gold}${best}{/}`, 'lightGray');
     if (game.over) {
-      term.print(0, FOOT_Y + 1, `{red}Você morreu{/} (${game.over.cause}). Pressione {white}Enter{/} para recomeçar.`, 'lightGray');
+      const rank = this.rank >= 0 ? ` {gold}${this.rank + 1}º lugar no quadro de recordes!{/}` : '';
+      const head = game.over.won ? '{gold}VITÓRIA!{/}' : '{red}Você morreu{/}';
+      term.print(0, FOOT_Y + 1, `${head} (${game.over.cause}) — ${score} pontos.${rank} {white}Enter{/} recomeça.`, 'lightGray');
     } else {
-      term.print(0, FOOT_Y + 1, 'Mova/ataque com {white}hjklyubn{/}, {white}setas{/} ou {white}numpad{/}. {white}.{/} espera.', 'darkGray');
+      term.print(0, FOOT_Y + 1, 'Mova/ataque com {white}hjklyubn{/}/{white}setas{/}/{white}numpad{/} · {white}i{/} inventário · {white}?{/} ajuda', 'darkGray');
     }
   }
 }

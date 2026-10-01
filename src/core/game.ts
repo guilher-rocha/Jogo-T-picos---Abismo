@@ -53,8 +53,14 @@ export interface Game {
   nextId: number;
   /** Eventos para a interface (transitório: não vai para o save). */
   events: GameEvent[];
+  /** Chefes únicos já derrotados (ids). */
+  uniquesKilled: string[];
+  /** O jogador pegou o Coração do Abismo. */
+  hasAmulet: boolean;
+  /** Data do desafio diário (seed do dia), se for o caso. */
+  daily?: string;
   /** Preenchido quando a partida termina. */
-  over?: { won: boolean; cause: string };
+  over?: { won: boolean; cause: string; escaped?: boolean };
 }
 
 export function createRngs(seed: number): GameRngs {

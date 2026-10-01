@@ -38,6 +38,8 @@ export function createTestGame(seed = 1): Game {
     hero: createHero('Teste', 'human', 'warrior'),
     log: [],
     events: [],
+    uniquesKilled: [],
+    hasAmulet: false,
     rng: createRngs(seed),
     nextId: 2,
   };

@@ -9,6 +9,7 @@ import { createGame, DEFAULT_HERO } from './core/world';
 import type { HeroSpec } from './core/world';
 import { freshSeed } from './engine/rng';
 import { CreationScreen } from './ui/creationScreen';
+import { insertHighScore } from './core/score';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const term = new Terminal(SCREEN_COLS, SCREEN_ROWS);
@@ -32,6 +33,8 @@ const app: App = {
   screens,
   debug,
   restart: () => screens.replace(new CreationScreen(app, startGame)),
+  highScores: [],
+  recordScore: (entry) => insertHighScore(app.highScores, entry),
 };
 
 // ?quick=1 pula a criação (útil para testes); ?class=mage&race=elf escolhe a combinação.

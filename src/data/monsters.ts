@@ -1,5 +1,6 @@
 import type { Color } from '../engine/colors';
 import type { Attack, Gender } from '../core/actor';
+import { BOSSES } from './bosses';
 
 /**
  * Modelo (arquétipo) de monstro. Monstros concretos são gerados a partir destes dados.
@@ -154,7 +155,7 @@ export const MONSTERS: MonsterTemplate[] = [
 ];
 
 export function monsterTemplate(id: string): MonsterTemplate {
-  const t = MONSTERS.find((x) => x.id === id);
+  const t = MONSTERS.find((x) => x.id === id) ?? BOSSES.find((x) => x.id === id);
   if (!t) throw new Error(`Monstro desconhecido: ${id}`);
   return t;
 }

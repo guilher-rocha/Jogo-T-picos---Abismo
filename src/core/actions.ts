@@ -38,7 +38,8 @@ export type Action =
   | { type: 'throw'; itemId: number; tx: number; ty: number }
   | { type: 'fire'; tx: number; ty: number }
   | { type: 'read'; itemId: number }
-  | { type: 'zap'; itemId: number; tx: number; ty: number };
+  | { type: 'zap'; itemId: number; tx: number; ty: number }
+  | { type: 'invoke' };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -65,6 +66,14 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       return doStairs(game, actor, 'up');
     case 'fire':
       return actor.isPlayer ? fire(game, actor, { x: action.tx, y: action.ty }) : 0;
+    case 'invoke':
+      if (!actor.isPlayer || !game.hasAmulet) {
+        message(game, 'Você não tem nada para invocar.', 'darkGray');
+        return 0;
+      }
+      message(game, 'O Coração do Abismo brilha e o mundo se dobra ao seu redor...', 'lightMagenta');
+      game.over = { won: true, escaped: false, cause: 'venceu: invocou o Coração do Abismo' };
+      return ACTION_COST;
   }
   // Ações de inventário: só o jogador.
   if (!actor.isPlayer) return 0;
@@ -148,6 +157,11 @@ function doStairs(game: Game, actor: Actor, dir: 'up' | 'down'): number {
     return 0;
   }
   if (game.depth === 1) {
+    if (game.hasAmulet) {
+      message(game, 'Você sobe para a luz do dia com o Coração do Abismo nas mãos!', 'gold');
+      game.over = { won: true, escaped: true, cause: 'escapou do Abismo com o Coração' };
+      return ACTION_COST;
+    }
     message(game, 'A saída está bloqueada por uma força mágica. Só o Coração do Abismo pode abri-la.', 'lightGray');
     return 0;
   }

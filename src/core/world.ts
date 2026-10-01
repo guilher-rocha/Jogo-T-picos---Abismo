@@ -4,6 +4,7 @@ import { createRngs, emit, level, message, refreshFov } from './game';
 import { createActor } from './actor';
 import { buildLevel } from '../gen/level';
 import { themeById, themeForDepth } from '../data/themes';
+import { bossForDepth } from '../data/bosses';
 import { isWalkable, DIRS8 } from './map';
 import { createHero, gainXp, recalcPlayer } from './hero';
 import { classById } from '../data/classes';
@@ -35,6 +36,8 @@ export function createGame(seed: number, spec: HeroSpec = DEFAULT_HERO): Game {
     hero: createHero(spec.name, spec.raceId, spec.classId, spec.rollSeed !== undefined ? new RNG(spec.rollSeed) : undefined),
     log: [],
     events: [],
+    uniquesKilled: [],
+    hasAmulet: false,
     rng: createRngs(seed),
     nextId: 2,
   };
@@ -89,10 +92,12 @@ export function enterLevel(game: Game, depth: number, arrive: 'up' | 'down'): vo
   if (deeper) game.maxDepth = depth;
   refreshFov(game);
   emit(game, { type: 'stairs' });
-  if (game.turn > 0) {
+  if (previousTheme !== undefined) {
     const theme = themeById(lvl.theme);
     message(game, `Você ${arrive === 'up' ? 'desce' : 'sobe'} para o andar ${depth}.`, 'white');
     if (firstVisit && theme.id !== previousTheme) message(game, `— ${theme.name} —`, themeForDepth(depth).wall);
+    const boss = bossForDepth(depth);
+    if (firstVisit && boss && !game.uniquesKilled.includes(boss.id)) message(game, boss.intro, 'lightRed');
   }
   // Explorar mais fundo também dá experiência.
   if (deeper) gainXp(game, 5 * depth);
