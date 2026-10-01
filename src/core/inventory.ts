@@ -138,7 +138,10 @@ export function equip(game: Game, item: Item, quiet = false): boolean {
   } else {
     game.hero.equipment[slot] = item.id;
   }
+  const wasUnknown = !item.identified;
+  item.identified = true;
   if (!quiet) {
+    if (wasUnknown) message(game, `Você descobre: é ${itemName(game, item)}!`, item.cursed ? 'lightRed' : 'lightCyan');
     const verb = slot === 'weapon' ? 'empunha' : slot === 'quiver' ? 'põe na aljava' : slot === 'light' ? 'acende' : 'veste';
     message(game, `Você ${verb} ${itemName(game, item)}.`, 'white');
     if (item.cursed) {

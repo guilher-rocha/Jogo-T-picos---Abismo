@@ -14,6 +14,7 @@ import { readyAmmo } from '../core/ranged';
 import type { EquipSlot, ItemCategory } from '../data/items';
 import { CATEGORY_NAMES, CATEGORY_SLOT, SLOT_NAMES, SLOT_ORDER, itemBase } from '../data/items';
 import type { App } from './app';
+import { affixById } from '../data/affixes';
 import type { MenuEntry } from './menuScreen';
 import { MenuScreen } from './menuScreen';
 import { TargetScreen } from './targetScreen';
@@ -76,6 +77,17 @@ export function examine(host: ItemHost, item: Item): void {
   if (base.armor !== undefined) lines.push(`Armadura: +${base.armor + (item.enchant ?? 0)}${base.spellPenalty ? ` · atrapalha magias (${base.spellPenalty}%)` : ''}`);
   if (base.light) lines.push(`Luz: +${base.light}${item.fuel !== undefined ? ` · combustível ${item.fuel} turnos` : ''}`);
   if (base.nutrition) lines.push(`Alimenta: ${base.nutrition}`);
+  if (item.identified && item.affixes.length) {
+    lines.push('');
+    lines.push('{yellow}Propriedades:{/}');
+    for (const id of item.affixes) {
+      const a = affixById(id);
+      if (a) lines.push(`  ${a.bad ? '{lightRed}' : '{lightCyan}'}${a.desc}{/}`);
+    }
+  } else if (!item.identified && (item.rarity !== 'common' || item.enchant !== 0)) {
+    lines.push('{lightMagenta}Este item tem propriedades desconhecidas. Equipe-o ou use identificação.{/}');
+  }
+  if (item.cursed && item.identified) lines.push('{lightRed}Amaldiçoado: não pode ser removido.{/}');
   lines.push(`Peso: ${fmtWeight(itemWeight(item))}`);
   host.app.screens.push(new TextWindow(host.app, 'Examinar', lines));
 }

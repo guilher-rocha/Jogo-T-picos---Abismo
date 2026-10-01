@@ -42,7 +42,11 @@ export function itemName(game: Game | undefined, item: Item, article: Article = 
   if (item.identified) {
     if (item.enchant !== 0) full += ` ${item.enchant > 0 ? '+' : ''}${item.enchant}`;
     for (const a of item.affixes) full = affixName(a, full, gender);
-    if (item.properName) full = `${full} "${item.properName}"`;
+    // Raros e lendários: o nome próprio vem na frente, sem artigo.
+    if (item.properName) return `${item.properName} (${full})`;
+  } else if (item.rarity !== 'common' || item.enchant !== 0 || item.cursed) {
+    const word = item.rarity === 'legendary' ? 'lendári' : item.rarity === 'rare' ? 'rar' : 'mágic';
+    full += ` (${word}${gender === 'f' ? 'a' : 'o'}?)`;
   }
   const base = itemBase(item.baseId);
   if (base.category === 'wand' && item.identified && item.charges !== undefined) full += ` (${item.charges})`;

@@ -6,6 +6,9 @@ import type { ItemBase, ItemCategory } from '../data/items';
 import { ITEMS, itemBase } from '../data/items';
 import { isImplemented } from '../core/consumables';
 import { spawnPoints } from './populate';
+import type { AffixDef } from '../data/affixes';
+import { AFFIXES, ARTIFACTS } from '../data/affixes';
+import { randomName } from './names';
 
 /** Peso de cada categoria no sorteio de itens do chão. */
 const CATEGORY_WEIGHTS: { item: ItemCategory[]; weight: number }[] = [
@@ -50,11 +53,77 @@ export function rollItem(game: Game, rng: RNG, baseId: string, depth: number): I
   else if (base.id === 'dart' || base.id === 'dagger') item.quantity = base.id === 'dart' ? rng.int(4, 10) : rng.int(1, 3);
   else if (base.category === 'potion' || base.category === 'scroll') item.quantity = rng.chance(15) ? 2 : 1;
   if (base.charges) item.charges = rng.roll(base.charges);
-  // Equipamento às vezes vem encantado; mais fundo, encantamentos maiores.
-  if (base.damage !== undefined || base.armor !== undefined) {
-    if (rng.chance(20 + depth)) item.enchant = rng.int(1, 1 + Math.floor(depth / 5));
-  }
+  applyRarity(game, rng, item, depth);
   return item;
+}
+
+/** Grupo do item para escolher afixos. */
+export function affixGroup(baseId: string): string | null {
+  const c = itemBase(baseId).category;
+  if (c === 'weapon') return 'weapon';
+  if (c === 'launcher') return 'launcher';
+  if (['armor', 'shield', 'helm', 'gloves', 'boots', 'cloak'].includes(c)) return 'armor';
+  if (c === 'ring' || c === 'amulet') return 'jewelry';
+  return null;
+}
+
+function pickAffixes(rng: RNG, group: string, depth: number, count: number, bad: boolean): string[] {
+  const chosen: AffixDef[] = [];
+  for (let i = 0; i < count; i++) {
+    const pool = AFFIXES.filter((a) => !a.artifact && !!a.bad === bad && a.applies.includes(group) && a.minLevel <= depth
+      && !chosen.some((c) => c.id === a.id || (c.kind === 'prefix' && a.kind === 'prefix' && chosen.filter((x) => x.kind === 'prefix').length >= 2)));
+    if (!pool.length) break;
+    chosen.push(rng.weighted(pool.map((a) => ({ item: a, weight: a.weight }))));
+  }
+  // Prefixos (adjetivos) antes dos sufixos ("espada Flamejante do Urso").
+  chosen.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'prefix' ? -1 : 1));
+  return chosen.map((a) => a.id);
+}
+
+const RARE_NOUNS = ['Fúria', 'Ruína', 'Sussurro', 'Lamento', 'Juramento', 'Presa', 'Sombra', 'Glória', 'Canção', 'Promessa', 'Ira', 'Vigília'];
+
+/**
+ * Sorteia a raridade de um equipamento:
+ * comum (talvez encantado) · mágico (1–2 afixos) · raro (3–4 afixos + nome) · lendário (artefato único).
+ * Às vezes o item é amaldiçoado (encantamento negativo + afixo ruim).
+ */
+export function applyRarity(game: Game, rng: RNG, item: Item, depth: number): void {
+  const group = affixGroup(item.baseId);
+  if (!group) return;
+  const base = itemBase(item.baseId);
+  // Artefato lendário (só um de cada por partida).
+  if (depth >= 5 && rng.chance(1 + depth / 10)) {
+    const options = ARTIFACTS.filter((a) => a.minDepth <= depth && !game.artifactsFound.includes(a.id));
+    if (options.length) {
+      const art = rng.pick(options);
+      game.artifactsFound.push(art.id);
+      Object.assign(item, { baseId: art.baseId, enchant: art.enchant, affixes: [...art.affixes], rarity: 'legendary', properName: art.name, identified: false, quantity: 1 });
+      return;
+    }
+  }
+  if (rng.chance(8)) {
+    item.cursed = true;
+    item.enchant = -rng.int(1, 3);
+    item.affixes = rng.chance(60) ? pickAffixes(rng, group, depth, 1, true) : [];
+    item.rarity = 'magic';
+    item.identified = false;
+    return;
+  }
+  const roll = rng.next() * 100;
+  if (roll < 5 + depth / 2) {
+    item.rarity = 'rare';
+    item.affixes = pickAffixes(rng, group, depth, rng.int(3, 4), false);
+    item.enchant = rng.int(1, 2 + Math.floor(depth / 5));
+    item.properName = `${rng.pick(RARE_NOUNS)} de ${randomName(rng, 'monster')}`;
+  } else if (roll < 25 + depth) {
+    item.rarity = 'magic';
+    item.affixes = pickAffixes(rng, group, depth, rng.chance(35) ? 2 : 1, false);
+    if (rng.chance(40)) item.enchant = rng.int(1, 1 + Math.floor(depth / 6));
+  } else if ((base.damage !== undefined || base.armor !== undefined) && rng.chance(15 + depth)) {
+    item.enchant = rng.int(1, 1 + Math.floor(depth / 5));
+  }
+  // Itens com algo especial começam desconhecidos (revelados ao equipar ou identificar).
+  if (item.rarity !== 'common' || item.enchant !== 0) item.identified = false;
 }
 
 /** Espalha itens e ouro pelo andar. */

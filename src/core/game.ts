@@ -55,6 +55,8 @@ export interface Game {
   events: GameEvent[];
   /** Chefes únicos já derrotados (ids). */
   uniquesKilled: string[];
+  /** Artefatos lendários já gerados (ids) — um de cada por partida. */
+  artifactsFound: string[];
   /** O jogador pegou o Coração do Abismo. */
   hasAmulet: boolean;
   /** Data do desafio diário (seed do dia), se for o caso. */

@@ -1,9 +1,22 @@
 import type { RNG } from '../engine/rng';
-import type { Actor } from './actor';
+import type { Actor, Element } from './actor';
 import { createActor } from './actor';
 import type { Game } from './game';
 import { newId } from './game';
 import type { MonsterTemplate } from '../data/monsters';
+
+/** Resistências naturais de alguns monstros (%). */
+const RESISTS: Record<string, Partial<Record<Element, number>>> = {
+  fire_elemental: { fire: 100 },
+  frost_elemental: { cold: 100 },
+  red_dragon: { fire: 75 },
+  blue_dragon: { lightning: 75 },
+  demon: { fire: 75 },
+  abyss_guardian: { fire: 75, cold: 50 },
+  green_jelly: { acid: 100, poison: 100 },
+  poison_fungus: { poison: 100 },
+  stone_golem: { poison: 100, lightning: 50 },
+};
 
 /** Cria um monstro concreto a partir do modelo (rola o HP etc.). */
 export function createMonster(game: Game, t: MonsterTemplate, x: number, y: number, rng: RNG): Actor {
@@ -25,6 +38,7 @@ export function createMonster(game: Game, t: MonsterTemplate, x: number, y: numb
     xpValue: t.xp,
     level: t.level,
     flags: [...t.flags],
+    resist: { ...(t.flags.includes('undead') ? { poison: 100, cold: 50 } : {}), ...RESISTS[t.id] },
     // A maioria dos monstros começa dormindo.
     ai: { state: rng.chance(70) ? 'sleeping' : 'wandering', lostTurns: 0 },
   });

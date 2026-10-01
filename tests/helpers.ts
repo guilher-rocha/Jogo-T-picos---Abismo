@@ -39,6 +39,7 @@ export function createTestGame(seed = 1): Game {
     log: [],
     events: [],
     uniquesKilled: [],
+    artifactsFound: [],
     hasAmulet: false,
     rng: createRngs(seed),
     nextId: 2,

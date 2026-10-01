@@ -1,4 +1,6 @@
-import type { Actor, Attack } from './actor';
+import type { Actor, Attack, Element } from './actor';
+import { hasFlag } from './actor';
+import { collectBonuses } from './bonuses';
 import type { Game } from './game';
 import { emit, level, message } from './game';
 import { aName, capitalize, theName } from './text';
@@ -55,11 +57,41 @@ function resolveAttack(game: Game, attacker: Actor, defender: Actor, atk: Attack
     else message(game, `${capitalize(a)} erra você.`, 'darkGray');
     return;
   }
-  const dmg = Math.max(1, Math.round(rng.roll(atk.damage) * mult));
+  let dmg = Math.max(1, Math.round(rng.roll(atk.damage) * mult * resistMult(defender, atk.element)));
+  // Marcas elementais da arma do jogador (afixos Flamejante, Gélida...).
+  let extra = '';
+  let lifeSteal = 0;
+  if (attacker.isPlayer) {
+    const bon = collectBonuses(game);
+    for (const br of bon.brands) {
+      let bd = rng.roll(br.damage) * resistMult(defender, br.element);
+      if (br.element === 'holy' && hasFlag(defender, 'undead')) bd *= 2;
+      if (bd > 0) {
+        dmg += Math.round(bd);
+        extra = ` ${ELEMENT_WORD[br.element] ?? ''}`;
+      }
+    }
+    lifeSteal = bon.lifeSteal;
+  }
   if (attacker.isPlayer && sneak) message(game, `Ataque furtivo! Você acerta ${d} em cheio.`, 'yellow');
-  else if (attacker.isPlayer) message(game, `Você acerta ${d}.`, 'white');
+  else if (attacker.isPlayer) message(game, `Você acerta ${d}${extra}.`, 'white');
   else if (defender.isPlayer) message(game, `${capitalize(a)} ${atk.verb} você.`, 'lightRed');
   damage(game, defender, dmg, attacker);
+  if (lifeSteal > 0) {
+    const heal = Math.max(1, Math.round((dmg * lifeSteal) / 100));
+    attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
+  }
+}
+
+const ELEMENT_WORD: Partial<Record<Element, string>> = {
+  fire: '(queima!)', cold: '(congela!)', lightning: '(eletrocuta!)', poison: '(envenena!)', holy: '(luz sagrada!)', acid: '(corrói!)',
+};
+
+/** Multiplicador de dano conforme a resistência do alvo ao elemento. */
+export function resistMult(target: Actor, element?: Element): number {
+  if (!element || element === 'physical') return 1;
+  const r = target.resist?.[element] ?? 0;
+  return Math.max(0, 1 - r / 100);
 }
 
 /** Aplica dano; mata se o HP chegar a zero. */

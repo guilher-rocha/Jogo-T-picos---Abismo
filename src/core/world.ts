@@ -37,6 +37,7 @@ export function createGame(seed: number, spec: HeroSpec = DEFAULT_HERO): Game {
     log: [],
     events: [],
     uniquesKilled: [],
+    artifactsFound: [],
     hasAmulet: false,
     rng: createRngs(seed),
     nextId: 2,
