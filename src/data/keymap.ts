@@ -4,7 +4,9 @@ export type CommandName =
   | 'run'
   | 'wait'
   | 'messages'
-  | 'help';
+  | 'help'
+  | 'throw'
+  | 'look';
 
 export interface Command {
   name: CommandName;
@@ -48,6 +50,9 @@ export function directionForKey(k: KeyInput): [number, number] | null {
 const SIMPLE_KEYS: Record<string, CommandName> = {
   M: 'messages',
   '?': 'help',
+  t: 'throw',
+  x: 'look',
+  ';': 'look',
 };
 
 /** Tabela de ajuda (mostrada com "?"). */
@@ -57,6 +62,8 @@ export const KEY_HELP: [string, string][] = [
   ['numpad 1-9', 'mover / atacar'],
   ['Shift + direção', 'correr'],
   ['. ou numpad 5', 'esperar um turno'],
+  ['t', 'arremessar (dardo)'],
+  ['x ou ;', 'olhar (inspecionar o mapa)'],
   ['M ou Ctrl+P', 'histórico de mensagens'],
   ['?', 'esta ajuda'],
 ];

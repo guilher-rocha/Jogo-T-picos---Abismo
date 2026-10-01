@@ -8,6 +8,8 @@ import type { Item } from './item';
 import type { LogMessage } from './log';
 import { pushMessage } from './log';
 import { updatePlayerFov } from './fov';
+import type { GameEvent } from './events';
+import { pushEvent } from './events';
 
 /** Um andar da masmorra: mapa + monstros. */
 export interface Level {
@@ -40,6 +42,8 @@ export interface Game {
   log: LogMessage[];
   rng: GameRngs;
   nextId: number;
+  /** Eventos para a interface (transitório: não vai para o save). */
+  events: GameEvent[];
   /** Preenchido quando a partida termina. */
   over?: { won: boolean; cause: string };
 }
@@ -63,6 +67,10 @@ export const PLAYER_LIGHT = 3;
 /** Recalcula o campo de visão do jogador no andar atual. */
 export function refreshFov(game: Game): void {
   updatePlayerFov(level(game).map, game.player.x, game.player.y, PLAYER_LIGHT);
+}
+
+export function emit(game: Game, e: GameEvent): void {
+  pushEvent(game.events, e);
 }
 
 export function newId(game: Game): number {

@@ -15,6 +15,7 @@ export function createGame(seed: number): Game {
       hp: 20, maxHp: 20, accuracy: 3, defense: 3, attacks: [{ verb: 'acerta', damage: '1d6+1' }],
     }),
     log: [],
+    events: [],
     rng: createRngs(seed),
     nextId: 2,
   };

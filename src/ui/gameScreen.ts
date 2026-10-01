@@ -10,6 +10,11 @@ import { formatMessage } from '../core/log';
 import { itemsAt } from '../core/item';
 import type { App } from './app';
 import { TextWindow } from './textWindow';
+import { TargetScreen } from './targetScreen';
+import { AnimationQueue } from '../engine/animations';
+import { playEvents } from './effects';
+import { THROW_RANGE } from '../core/actions';
+import type { Action } from '../core/actions';
 import { createMonster } from '../core/monster';
 import { MONSTERS } from '../data/monsters';
 import { createGame } from '../core/world';
@@ -19,9 +24,24 @@ import { drawMap } from './mapView';
 import { drawMessages, drawSidebar } from './hud';
 
 export class GameScreen implements Screen {
+  private anims = new AnimationQueue();
+
   constructor(private app: App, private game: Game) {}
 
+  update(dt: number): void {
+    this.anims.update(dt);
+  }
+
+  /** Executa uma ação do jogador e transforma o que aconteceu em animações. */
+  private act(action: Action): boolean {
+    const ok = playerAction(this.game, action);
+    playEvents(this.anims, this.game.events);
+    return ok;
+  }
+
   onKey(k: KeyInput): void {
+    // Uma tecla durante a animação pula a animação (e o comando segue normalmente).
+    if (this.anims.busy) this.anims.skipAll();
     if (this.app.debug && this.debugKey(k)) return;
     if (this.game.over) {
       // Provisório (a tela de Game Over vem na Etapa 3): Enter recomeça.
@@ -32,13 +52,24 @@ export class GameScreen implements Screen {
     if (!cmd) return;
     switch (cmd.name) {
       case 'move':
-        playerAction(this.game, { type: 'move', dx: cmd.dx!, dy: cmd.dy! });
+        this.act({ type: 'move', dx: cmd.dx!, dy: cmd.dy! });
         break;
       case 'run':
         this.run(cmd.dx!, cmd.dy!);
         break;
       case 'wait':
-        playerAction(this.game, { type: 'wait' });
+        this.act({ type: 'wait' });
+        break;
+      case 'throw':
+        this.app.screens.push(new TargetScreen(this.app, this.game, {
+          mode: 'aim',
+          prompt: 'Arremessar o dardo em quem?',
+          range: THROW_RANGE,
+          onConfirm: (p) => this.act({ type: 'throw', tx: p.x, ty: p.y }),
+        }));
+        break;
+      case 'look':
+        this.app.screens.push(new TargetScreen(this.app, this.game, { mode: 'look', prompt: 'Olhar:' }));
         break;
       case 'messages':
         this.app.screens.push(new TextWindow(this.app, 'Mensagens', this.game.log.map((m) => `{${m.color}}${formatMessage(m)}{/}`), { startAtEnd: true }));
@@ -60,11 +91,11 @@ export class GameScreen implements Screen {
       const nx = g.player.x + dx;
       const ny = g.player.y + dy;
       if (!isWalkable(level(g).map, nx, ny) || !isFree(g, nx, ny)) {
-        if (step === 0) playerAction(g, { type: 'move', dx, dy }); // ataca/abre porta como um passo normal
+        if (step === 0) this.act({ type: 'move', dx, dy }); // ataca/abre porta como um passo normal
         return;
       }
       const before = this.openNeighbors();
-      if (!playerAction(g, { type: 'move', dx, dy })) return;
+      if (!this.act({ type: 'move', dx, dy })) return;
       if (g.player.hp < hp || visibleMonsters() > seen) return;
       if (itemsAt(level(g), g.player.x, g.player.y).length) return;
       const t = getTile(level(g).map, g.player.x, g.player.y);
@@ -109,6 +140,7 @@ export class GameScreen implements Screen {
   render(term: Terminal): void {
     const game = this.game;
     drawMap(term, game);
+    this.anims.draw(term);
     drawMessages(term, game);
     drawSidebar(term, game);
     if (this.app.debug) term.print(SIDE_X, FOOT_Y - 1, `seed ${game.seed}`, 'lightMagenta');
