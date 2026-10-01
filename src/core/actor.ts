@@ -1,9 +1,31 @@
 import type { Color } from '../engine/colors';
+import type { Point } from './map';
 
 /** Energia necessária para agir. Uma ação normal custa isso. */
 export const ACTION_COST = 100;
 /** Velocidade normal: ganha 100 de energia por tick (1 ação por turno). */
 export const NORMAL_SPEED = 100;
+
+export type Gender = 'm' | 'f';
+
+/** Um ataque natural ou de arma. */
+export interface Attack {
+  /** Verbo na 3ª pessoa: "morde", "arranha", "acerta". */
+  verb: string;
+  damage: string;
+}
+
+export type AiState = 'sleeping' | 'wandering' | 'hunting' | 'fleeing';
+
+export interface AiMemory {
+  state: AiState;
+  /** Última posição conhecida do jogador. */
+  lastSeen?: Point;
+  /** Turnos desde a última vez que viu o jogador. */
+  lostTurns: number;
+  /** Destino de passeio. */
+  wanderTarget?: Point;
+}
 
 /** Qualquer criatura do jogo: o jogador e os monstros usam a mesma estrutura. */
 export interface Actor {
@@ -11,6 +33,7 @@ export interface Actor {
   /** Id do modelo em data/monsters.ts ('player' para o jogador). */
   templateId: string;
   name: string;
+  gender: Gender;
   glyph: string;
   color: Color;
   x: number;
@@ -18,16 +41,40 @@ export interface Actor {
   isPlayer: boolean;
   speed: number;
   energy: number;
+  hp: number;
+  maxHp: number;
+  /** Bônus de acerto. */
+  accuracy: number;
+  /** Classe de armadura (dificulta ser acertado). */
+  defense: number;
+  attacks: Attack[];
+  /** XP que o monstro concede ao morrer. */
+  xpValue: number;
+  ai: AiMemory;
+  flags: string[];
 }
 
 export function createActor(id: number, props: Partial<Actor> & Pick<Actor, 'templateId' | 'name' | 'glyph' | 'color'>): Actor {
   return {
     id,
+    gender: 'm',
     x: 0,
     y: 0,
     isPlayer: false,
     speed: NORMAL_SPEED,
     energy: 0,
+    hp: 1,
+    maxHp: 1,
+    accuracy: 0,
+    defense: 0,
+    attacks: [{ verb: 'acerta', damage: '1d2' }],
+    xpValue: 0,
+    ai: { state: 'wandering', lostTurns: 0 },
+    flags: [],
     ...props,
   };
+}
+
+export function hasFlag(a: Actor, flag: string): boolean {
+  return a.flags.includes(flag);
 }

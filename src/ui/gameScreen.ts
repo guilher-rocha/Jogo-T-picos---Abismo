@@ -2,17 +2,16 @@ import type { Screen } from '../engine/screens';
 import type { Terminal } from '../engine/terminal';
 import type { KeyInput } from '../data/keymap';
 import { commandForKey } from '../data/keymap';
-import { Tile, tileDef } from '../data/tiles';
 import type { Game } from '../core/game';
-import { level, message } from '../core/game';
+import { isFree, level, message } from '../core/game';
+import { DIRS8 } from '../core/map';
+import { createMonster } from '../core/monster';
+import { MONSTERS } from '../data/monsters';
 import { createGame } from '../core/world';
-import { idx } from '../core/map';
 import { playerAction } from '../core/turn';
-import { formatMessage } from '../core/log';
-import { FOOT_Y, MAP_X, MAP_Y, MSG_LINES, SIDE_X } from './layout';
-
-/** Terrenos importantes que continuam bem visíveis na memória. */
-const REMEMBER_BRIGHT = new Set<number>([Tile.StairsDown, Tile.StairsUp, Tile.DoorClosed, Tile.DoorOpen, Tile.Fountain, Tile.Altar]);
+import { FOOT_Y, SIDE_X } from './layout';
+import { drawMap } from './mapView';
+import { drawMessages, drawSidebar } from './hud';
 
 export interface GameScreenOptions {
   debug: boolean;
@@ -23,6 +22,11 @@ export class GameScreen implements Screen {
 
   onKey(k: KeyInput): void {
     if (this.opts.debug && this.debugKey(k)) return;
+    if (this.game.over) {
+      // Provisório (a tela de Game Over vem na Etapa 3): Enter recomeça.
+      if (k.key === 'Enter') this.game = createGame((this.game.seed * 31 + 7) >>> 0);
+      return;
+    }
     const cmd = commandForKey(k);
     if (!cmd) return;
     if (cmd.name === 'move' || cmd.name === 'run') playerAction(this.game, { type: 'move', dx: cmd.dx!, dy: cmd.dy! });
@@ -36,38 +40,37 @@ export class GameScreen implements Screen {
       message(this.game, `[debug] novo mapa, seed ${this.game.seed}`, 'lightMagenta');
       return true;
     }
+    if (k.key === 'F3') {
+      const map = level(this.game).map;
+      map.explored.fill(1);
+      map.visible.fill(1);
+      message(this.game, '[debug] mapa revelado', 'lightMagenta');
+      return true;
+    }
+    if (k.key === 'F4') {
+      const g = this.game;
+      const d = DIRS8.find((d) => isFree(g, g.player.x + d.x, g.player.y + d.y));
+      if (d) {
+        const m = createMonster(g, g.rng.loot.pick(MONSTERS), g.player.x + d.x, g.player.y + d.y, g.rng.loot);
+        m.ai.state = 'hunting';
+        level(g).actors.push(m);
+        message(g, `[debug] ${m.name} criado`, 'lightMagenta');
+      }
+      return true;
+    }
     return false;
   }
 
   render(term: Terminal): void {
     const game = this.game;
-    const { map, actors } = level(game);
-    for (let y = 0; y < map.height; y++) {
-      for (let x = 0; x < map.width; x++) {
-        const i = idx(map, x, y);
-        if (!map.explored[i]) continue;
-        const t = map.tiles[i];
-        const def = tileDef(t);
-        if (map.visible[i]) term.set(MAP_X + x, MAP_Y + y, def.glyph, def.fg, def.bg);
-        else term.set(MAP_X + x, MAP_Y + y, def.glyph, REMEMBER_BRIGHT.has(t) ? 'darkGray' : 'memory');
-      }
+    drawMap(term, game);
+    drawMessages(term, game);
+    drawSidebar(term, game);
+    if (this.opts.debug) term.print(SIDE_X, FOOT_Y - 1, `seed ${game.seed}`, 'lightMagenta');
+    if (game.over) {
+      term.print(0, FOOT_Y + 1, `{red}Você morreu{/} (${game.over.cause}). Pressione {white}Enter{/} para recomeçar.`, 'lightGray');
+    } else {
+      term.print(0, FOOT_Y + 1, 'Mova/ataque com {white}hjklyubn{/}, {white}setas{/} ou {white}numpad{/}. {white}.{/} espera.', 'darkGray');
     }
-    for (const a of actors) {
-      if (map.visible[idx(map, a.x, a.y)]) term.set(MAP_X + a.x, MAP_Y + a.y, a.glyph, a.color);
-    }
-    const p = game.player;
-    term.set(MAP_X + p.x, MAP_Y + p.y, p.glyph, p.color);
-
-    // Mensagens: as últimas MSG_LINES, as do turno atual em destaque.
-    const recent = game.log.slice(-MSG_LINES);
-    recent.forEach((m, i) => {
-      const fresh = m.turn >= game.turn - 1;
-      term.print(1, i, formatMessage(m), fresh ? m.color : 'darkGray', 'black', 98);
-    });
-
-    term.print(SIDE_X, MAP_Y, 'Turno', 'darkGray');
-    term.print(SIDE_X + 6, MAP_Y, String(game.turn), 'white');
-    if (this.opts.debug) term.print(SIDE_X, MAP_Y + 2, `seed ${game.seed}`, 'lightMagenta');
-    term.print(0, FOOT_Y + 1, 'Mova com {white}hjklyubn{/}, {white}setas{/} ou {white}numpad{/}. {white}.{/} espera.', 'darkGray');
   }
 }

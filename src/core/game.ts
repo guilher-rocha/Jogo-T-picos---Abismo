@@ -1,14 +1,13 @@
 import { RNG } from '../engine/rng';
 import type { Color } from '../engine/colors';
 import type { Actor } from './actor';
-import { createActor } from './actor';
 import type { GameMap, Point } from './map';
 import type { Room } from '../gen/dungeon/common';
-import { isWalkable, mapFromStrings } from './map';
+import { isWalkable } from './map';
+import type { Item } from './item';
 import type { LogMessage } from './log';
 import { pushMessage } from './log';
 import { updatePlayerFov } from './fov';
-import { monsterTemplate } from '../data/monsters';
 
 /** Um andar da masmorra: mapa + monstros. */
 export interface Level {
@@ -16,6 +15,8 @@ export interface Level {
   map: GameMap;
   /** Monstros do andar (o jogador fica em Game.player). */
   actors: Actor[];
+  /** Itens no chão. */
+  items: Item[];
   up: Point;
   down: Point;
   rooms: Room[];
@@ -39,6 +40,8 @@ export interface Game {
   log: LogMessage[];
   rng: GameRngs;
   nextId: number;
+  /** Preenchido quando a partida termina. */
+  over?: { won: boolean; cause: string };
 }
 
 export function createRngs(seed: number): GameRngs {
@@ -75,45 +78,4 @@ export function actorAt(game: Game, x: number, y: number): Actor | undefined {
 /** Célula livre: terreno passável e sem ninguém. */
 export function isFree(game: Game, x: number, y: number): boolean {
   return isWalkable(level(game).map, x, y) && !actorAt(game, x, y);
-}
-
-const TEST_MAP = [
-  '',
-  '   ##########               ##############',
-  '   #........#               #............#',
-  '   #........#################............#',
-  '   #....................................#',
-  '   #........#################............#',
-  '   #........#               #......#.....#',
-  '   ####.#####               #......#.....#',
-  '      #.#                   ########.#####',
-  '      #.#                          #.#',
-  '   ####.##########           #######.#######',
-  '   #.............#           #.............#',
-  '   #.............#############.............#',
-  '   #.......................................#',
-  '   #.............#############.............#',
-  '   ###############           ###############',
-];
-
-/** Partida de teste com mapa desenhado à mão e alguns monstros (subetapas 1.1–1.2). */
-export function createTestGame(seed = 1): Game {
-  const map = mapFromStrings(TEST_MAP);
-  const game: Game = {
-    seed,
-    turn: 0,
-    depth: 1,
-    levels: { 1: { depth: 1, map, actors: [], up: { x: 6, y: 3 }, down: { x: 40, y: 13 }, rooms: [] } },
-    player: createActor(1, { templateId: 'player', name: 'você', glyph: '@', color: 'white', x: 6, y: 3, isPlayer: true, energy: 100 }),
-    log: [],
-    rng: createRngs(seed),
-    nextId: 2,
-  };
-  const spawns: [string, number, number][] = [['rat', 33, 3], ['goblin', 36, 12], ['bat', 8, 12], ['rat', 40, 6]];
-  for (const [id, x, y] of spawns) {
-    const t = monsterTemplate(id);
-    game.levels[1].actors.push(createActor(newId(game), { templateId: t.id, name: t.name, glyph: t.glyph, color: t.color, speed: t.speed, x, y }));
-  }
-  message(game, 'Bem-vindo ao Abismo!', 'yellow');
-  return game;
 }

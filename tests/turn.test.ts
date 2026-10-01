@@ -1,11 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { createTestGame, level } from '../src/core/game';
+import { level } from '../src/core/game';
+import { createTestGame } from './helpers';
 import { playerAction } from '../src/core/turn';
 import { createActor } from '../src/core/actor';
+import { createMonster } from '../src/core/monster';
+import { monsterTemplate } from '../src/data/monsters';
+import { RNG } from '../src/engine/rng';
+import type { Game } from '../src/core/game';
+
+/** Partida de teste com alguns monstros acordados passeando. */
+function withMonsters(seed = 1): Game {
+  const g = createTestGame(seed);
+  const rng = new RNG(seed);
+  for (const [id, x, y] of [['rat', 33, 3], ['goblin', 36, 12], ['bat', 8, 12], ['rat', 40, 6]] as const) {
+    const m = createMonster(g, monsterTemplate(id), x, y, rng);
+    m.ai.state = 'wandering';
+    level(g).actors.push(m);
+  }
+  return g;
+}
 
 describe('loop de turnos (energia)', () => {
   it('monstros só se movem quando o jogador age', () => {
-    const g = createTestGame();
+    const g = withMonsters();
     const before = level(g).actors.map((a) => [a.x, a.y]);
     // Sem ação do jogador, nada muda.
     expect(level(g).actors.map((a) => [a.x, a.y])).toEqual(before);
@@ -38,7 +55,7 @@ describe('loop de turnos (energia)', () => {
 
   it('é determinístico para a mesma seed', () => {
     const run = () => {
-      const g = createTestGame(77);
+      const g = withMonsters(77);
       for (let i = 0; i < 30; i++) playerAction(g, { type: 'wait' });
       return level(g).actors.map((a) => [a.x, a.y]);
     };

@@ -1,7 +1,6 @@
 import { RNG } from '../engine/rng';
 import type { Game, Level } from '../core/game';
-import { newId } from '../core/game';
-import { createActor } from '../core/actor';
+import { createMonster } from '../core/monster';
 import { MONSTERS } from '../data/monsters';
 import { generateDungeon } from './dungeon';
 import type { Room } from './dungeon';
@@ -16,7 +15,7 @@ export function levelRng(seed: number, depth: number): RNG {
 export function buildLevel(game: Game, depth: number): Level {
   const rng = levelRng(game.seed, depth);
   const gen = generateDungeon(rng, depth);
-  const level: Level = { depth, map: gen.map, actors: [], up: gen.up, down: gen.down, rooms: gen.rooms };
+  const level: Level = { depth, map: gen.map, actors: [], items: [], up: gen.up, down: gen.down, rooms: gen.rooms };
   const startRoom = gen.rooms.find((r) => roomContains(r, gen.up.x, gen.up.y));
   const candidates = gen.rooms.filter((r) => !r.gone && r !== startRoom);
   const count = 3 + rng.int(0, depth + 1);
@@ -25,7 +24,7 @@ export function buildLevel(game: Game, depth: number): Level {
     const p = randomPointInRoom(rng, room);
     if (level.actors.some((a) => a.x === p.x && a.y === p.y)) continue;
     const t = rng.pick(MONSTERS);
-    level.actors.push(createActor(newId(game), { templateId: t.id, name: t.name, glyph: t.glyph, color: t.color, speed: t.speed, x: p.x, y: p.y }));
+    level.actors.push(createMonster(game, t, p.x, p.y, rng));
   }
   return level;
 }

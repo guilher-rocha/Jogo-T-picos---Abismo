@@ -105,8 +105,15 @@ export class CanvasRenderer {
       ctx.fillStyle = pal[bg];
       ctx.fillRect(px, py, cellW, cellH);
       if (g !== ' ') {
+        // Recorta na célula: alguns glifos (█ ░) são mais altos que a célula e "vazariam".
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(px, py, cellW, cellH);
+        ctx.clip();
         ctx.fillStyle = pal[fg];
-        ctx.fillText(g, px + cellW / 2, py + cellH / 2 + 1);
+        if (g === '█') ctx.fillRect(px, py + 1, cellW, cellH - 2);
+        else ctx.fillText(g, px + cellW / 2, py + cellH / 2 + 1);
+        ctx.restore();
       }
     }
     if (this.theme.overlay) this.theme.overlay(ctx, term.cols * cellW, term.rows * cellH);

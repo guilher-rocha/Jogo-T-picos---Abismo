@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createTestGame, level } from '../src/core/game';
+import { level } from '../src/core/game';
+import { createTestGame } from './helpers';
 import { playerAction } from '../src/core/turn';
 import { commandForKey, type KeyInput } from '../src/data/keymap';
 

@@ -12,6 +12,7 @@ import { decideAction } from '../ai/behaviors';
  * - o loop para quando é a vez do jogador (esperando input).
  */
 export function playerAction(game: Game, action: Action): boolean {
+  if (game.over) return false;
   const cost = perform(game, game.player, action);
   if (cost <= 0) return false;
   game.player.energy -= cost;
@@ -23,10 +24,12 @@ export function playerAction(game: Game, action: Action): boolean {
 export function runUntilPlayerTurn(game: Game): void {
   // Proteção contra laço infinito (nunca deveria chegar perto disso).
   for (let guard = 0; guard < 10000; guard++) {
-    if (game.player.energy >= ACTION_COST) return;
+    if (game.over || game.player.energy >= ACTION_COST) return;
     let acted = false;
-    for (const m of level(game).actors) {
-      if (m.energy < ACTION_COST) continue;
+    // Cópia: monstros podem morrer durante o laço.
+    for (const m of [...level(game).actors]) {
+      if (game.over) return;
+      if (m.hp <= 0 || m.energy < ACTION_COST) continue;
       const cost = perform(game, m, decideAction(game, m));
       // Ação inválida da IA: ela perde a vez em vez de travar o loop.
       m.energy -= cost > 0 ? cost : ACTION_COST;
@@ -36,8 +39,14 @@ export function runUntilPlayerTurn(game: Game): void {
   }
 }
 
+/** Intervalo (em turnos) para regenerar 1 HP. */
+const REGEN_INTERVAL = 10;
+
 function tick(game: Game): void {
   game.turn++;
   game.player.energy += game.player.speed;
   for (const m of level(game).actors) m.energy += m.speed;
+  if (game.turn % REGEN_INTERVAL === 0) {
+    for (const a of [game.player, ...level(game).actors]) if (a.hp < a.maxHp) a.hp++;
+  }
 }

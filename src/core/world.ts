@@ -10,7 +10,10 @@ export function createGame(seed: number): Game {
     turn: 0,
     depth: 1,
     levels: {},
-    player: createActor(1, { templateId: 'player', name: 'você', glyph: '@', color: 'white', isPlayer: true, energy: 100 }),
+    player: createActor(1, {
+      templateId: 'player', name: 'você', glyph: '@', color: 'white', isPlayer: true, energy: 100,
+      hp: 20, maxHp: 20, accuracy: 3, defense: 3, attacks: [{ verb: 'acerta', damage: '1d6+1' }],
+    }),
     log: [],
     rng: createRngs(seed),
     nextId: 2,
