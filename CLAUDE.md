@@ -8,7 +8,8 @@ O plano completo está em `PLANO.md`; os prompts usados ficam registrados em `PR
 - `npm test` — testes (Vitest, lógica pura)
 - `npm run typecheck` — checagem de tipos
 - `npm run build` — build de produção em `dist/`
-- `node scripts/shot.mjs` — screenshot/roteiro de teclas no Chrome headless (verificação visual)
+- `node scripts/shot.mjs --out x.png --query "quick=1&debug=1" --keys "l,l,F3"` — screenshot/roteiro de teclas no Chrome headless
+- `node scripts/whichgen.mjs <seed>` — lista gerador e sala especial de cada andar
 
 ## Regras
 - Implemente **apenas a subetapa pedida** do `PLANO.md`; não adiante etapas futuras.
