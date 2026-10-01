@@ -3,6 +3,7 @@ import type { Game } from './game';
 import { emit, message } from './game';
 import { classById } from '../data/classes';
 import { raceById } from '../data/races';
+import { STARTING_SPELLS } from '../data/spells';
 
 export type StatId = 'str' | 'dex' | 'con' | 'int' | 'wis';
 export type Stats = Record<StatId, number>;
@@ -31,6 +32,8 @@ export interface Hero {
   kills: number;
   /** Turno em que cada habilidade volta a ficar disponível. */
   cooldowns: Record<string, number>;
+  /** Magias conhecidas (ids). */
+  spells: string[];
 }
 
 /** Modificador de atributo estilo D&D: (valor − 10) / 2, arredondado para baixo. */
@@ -53,7 +56,10 @@ export function createHero(name: string, raceId: string, classId: string, rng?: 
     const variance = rng ? rng.int(-1, 2) : 0;
     stats[s] = Math.max(3, cls.stats[s] + race.mods[s] + variance);
   }
-  return { name, raceId, classId, stats, level: 1, xp: 0, hpRolls: [], statPoints: 0, gold: 0, kills: 0, cooldowns: {} };
+  return {
+    name, raceId, classId, stats, level: 1, xp: 0, hpRolls: [], statPoints: 0, gold: 0, kills: 0, cooldowns: {},
+    spells: [...(STARTING_SPELLS[classId] ?? [])],
+  };
 }
 
 /** Recalcula os valores derivados do jogador (HP/MP máximos, precisão, defesa...). */

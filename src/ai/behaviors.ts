@@ -9,6 +9,7 @@ import { hasLineOfSight } from '../core/fov';
 import { Tile } from '../data/tiles';
 import { capitalize, theName } from '../core/text';
 import { distanceMapTo, stepDownhill } from './pathing';
+import { playerHidden } from '../core/abilities';
 
 /** Distância máxima em que um monstro percebe o jogador. */
 const SIGHT = 10;
@@ -17,6 +18,7 @@ const GIVE_UP = 20;
 
 export function canSeePlayer(game: Game, m: Actor): boolean {
   const p = game.player;
+  if (playerHidden(game) && distance(m, p) > 1) return false;
   if (distance(m, p) > SIGHT) return false;
   return hasLineOfSight(level(game).map, m.x, m.y, p.x, p.y);
 }
@@ -43,8 +45,13 @@ export function decideAction(game: Game, m: Actor): Action {
         return hunt(game, m);
       }
       return wander(game, m);
-    case 'hunting':
     case 'fleeing':
+      if ((m.ai.fleeUntil ?? 0) <= game.turn) {
+        m.ai.state = 'hunting';
+        return hunt(game, m);
+      }
+      return flee(game, m);
+    case 'hunting':
       if (sees) {
         m.ai.lastSeen = { x: game.player.x, y: game.player.y };
         m.ai.lostTurns = 0;
@@ -84,6 +91,27 @@ function hunt(game: Game, m: Actor): Action {
     return { type: 'wait' };
   }
   return { type: 'move', dx: step.x, dy: step.y };
+}
+
+/** Foge: passo que mais aumenta a distância até o jogador. Encurralado, luta. */
+function flee(game: Game, m: Actor): Action {
+  const p = game.player;
+  const blocked = blockedFor(game, m);
+  let best: Point | null = null;
+  let bestD = distance(m, p);
+  for (const d of DIRS8) {
+    const nx = m.x + d.x;
+    const ny = m.y + d.y;
+    if (blocked(nx, ny) || (nx === p.x && ny === p.y)) continue;
+    const nd = distance({ x: nx, y: ny }, p);
+    if (nd > bestD) {
+      bestD = nd;
+      best = d;
+    }
+  }
+  if (best) return { type: 'move', dx: best.x, dy: best.y };
+  if (distance(m, p) === 1) return { type: 'move', dx: p.x - m.x, dy: p.y - m.y };
+  return { type: 'wait' };
 }
 
 function wander(game: Game, m: Actor): Action {

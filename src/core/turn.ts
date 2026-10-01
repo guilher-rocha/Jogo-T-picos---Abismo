@@ -46,7 +46,16 @@ function tick(game: Game): void {
   game.turn++;
   game.player.energy += game.player.speed;
   for (const m of level(game).actors) m.energy += m.speed;
+  const p = game.player;
   if (game.turn % REGEN_INTERVAL === 0) {
-    for (const a of [game.player, ...level(game).actors]) if (a.hp < a.maxHp) a.hp++;
+    for (const a of [p, ...level(game).actors]) if (a.hp < a.maxHp) a.hp++;
   }
+  // Meio-orcs e trolls regeneram mais rápido.
+  if (game.turn % 4 === 0) {
+    if (game.hero.raceId === 'half_orc' && p.hp < p.maxHp) p.hp++;
+    for (const m of level(game).actors) if (m.flags.includes('regenerates') && m.hp < m.maxHp) m.hp += 2;
+  }
+  // Mana: mais rápido com nível alto.
+  const mpInterval = Math.max(3, 12 - Math.floor(p.level / 3));
+  if (game.turn % mpInterval === 0 && p.mp < p.maxMp) p.mp++;
 }

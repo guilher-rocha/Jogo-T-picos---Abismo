@@ -48,7 +48,7 @@ export const CLASSES: ClassDef[] = [
   },
   {
     id: 'mage', name: 'Mago', desc: 'Estudioso das artes arcanas. Frágil, mas devastador à distância.',
-    stats: { str: 8, dex: 12, con: 12, int: 16, wis: 12 }, hitDie: 4, hpBase: 6, castStat: 'int', mpBase: 4, mpPerLevel: 2,
+    stats: { str: 8, dex: 12, con: 12, int: 16, wis: 12 }, hitDie: 4, hpBase: 9, castStat: 'int', mpBase: 4, mpPerLevel: 2,
     accuracyPerLevel: 0.4,
     startingItems: ['quarterstaff', 'robe', 'potion_mana', 'potion_heal', 'scroll_identify', 'ration', 'torch'],
     abilities: [

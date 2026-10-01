@@ -37,6 +37,8 @@ export interface AiMemory {
   lostTurns: number;
   /** Destino de passeio. */
   wanderTarget?: Point;
+  /** Foge até este turno (medo, Expulsar Mortos-vivos). */
+  fleeUntil?: number;
 }
 
 /** Qualquer criatura do jogo: o jogador e os monstros usam a mesma estrutura. */

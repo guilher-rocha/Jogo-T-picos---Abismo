@@ -8,6 +8,8 @@ import { bresenham } from './fov';
 import { Tile } from '../data/tiles';
 import { meleeAttack, rangedAttack } from './combat';
 import { enterLevel } from './world';
+import { castSpell } from './spells';
+import { useAbility } from './abilities';
 import { MAX_DEPTH } from '../data/themes';
 import { capitalize, theName } from './text';
 
@@ -18,7 +20,9 @@ export type Action =
   | { type: 'throw'; tx: number; ty: number }
   | { type: 'wait' }
   | { type: 'descend' }
-  | { type: 'ascend' };
+  | { type: 'ascend' }
+  | { type: 'cast'; spellId: string; tx?: number; ty?: number }
+  | { type: 'ability'; abilityId: string; dx?: number; dy?: number };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -37,6 +41,10 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       return doThrow(game, actor, action.tx, action.ty);
     case 'wait':
       return ACTION_COST;
+    case 'cast':
+      return castSpell(game, actor, action.spellId, action.tx !== undefined ? { x: action.tx, y: action.ty! } : undefined);
+    case 'ability':
+      return actor.isPlayer ? useAbility(game, action.abilityId, action.dx, action.dy) : 0;
     case 'descend':
       return doStairs(game, actor, 'down');
     case 'ascend':

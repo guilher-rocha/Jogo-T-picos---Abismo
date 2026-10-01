@@ -5,8 +5,10 @@ import type { KeyInput } from './data/keymap';
 import { SCREEN_COLS, SCREEN_ROWS } from './ui/layout';
 import { GameScreen } from './ui/gameScreen';
 import type { App } from './ui/app';
-import { createGame } from './core/world';
+import { createGame, DEFAULT_HERO } from './core/world';
+import type { HeroSpec } from './core/world';
 import { freshSeed } from './engine/rng';
+import { CreationScreen } from './ui/creationScreen';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const term = new Terminal(SCREEN_COLS, SCREEN_ROWS);
@@ -17,16 +19,31 @@ window.addEventListener('resize', () => renderer.resize());
 const params = new URLSearchParams(location.search);
 const debug = params.get('debug') === '1';
 const seedParam = params.get('seed');
-const seed = seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : freshSeed();
-const app: App = { screens, debug };
-screens.replace(new GameScreen(app, createGame(seed)));
+const fixedSeed = seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : undefined;
+const quick = params.get('quick') === '1';
+const classParam = params.get('class');
+const raceParam = params.get('race');
+
+function startGame(spec: HeroSpec): void {
+  screens.replace(new GameScreen(app, createGame(fixedSeed ?? freshSeed(), spec)));
+}
+
+const app: App = {
+  screens,
+  debug,
+  restart: () => screens.replace(new CreationScreen(app, startGame)),
+};
+
+// ?quick=1 pula a criação (útil para testes); ?class=mage&race=elf escolhe a combinação.
+if (quick) startGame({ ...DEFAULT_HERO, classId: classParam ?? DEFAULT_HERO.classId, raceId: raceParam ?? DEFAULT_HERO.raceId });
+else app.restart();
 
 /** Teclas que o navegador usaria para outra coisa (rolar a página, etc.). */
 const PREVENT = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', ' ', 'Tab', 'Backspace', '/', "'"]);
 
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey && ['r', 'R', 'F5'].includes(e.key)) return; // deixa recarregar
-  if (PREVENT.has(e.key) || e.key.length === 1) e.preventDefault();
+  if (PREVENT.has(e.key) || e.key.length === 1 || (debug && /^F\d+$/.test(e.key))) e.preventDefault();
   if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
   const k: KeyInput = { key: e.key, code: e.code, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey };
   screens.onKey(k);

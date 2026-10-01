@@ -10,11 +10,17 @@ export function hitChance(attacker: Actor, defender: Actor): number {
   return Math.max(5, Math.min(95, 65 + (attacker.accuracy - defender.defense) * 5));
 }
 
+export interface AttackOptions {
+  damageMult?: number;
+}
+
 /** Um ataque corpo a corpo completo (todos os ataques do atacante). */
-export function meleeAttack(game: Game, attacker: Actor, defender: Actor): void {
+export function meleeAttack(game: Game, attacker: Actor, defender: Actor, opts: AttackOptions = {}): void {
+  // Ataque furtivo do Ladino: alvo dormindo ou distraído (não está caçando você).
+  const sneak = attacker.isPlayer && game.hero.classId === 'rogue' && !defender.isPlayer && defender.ai.state !== 'hunting';
   for (const atk of attacker.attacks) {
     if (defender.hp <= 0) break;
-    resolveAttack(game, attacker, defender, atk);
+    resolveAttack(game, attacker, defender, atk, (opts.damageMult ?? 1) * (sneak ? 3 : 1), sneak);
   }
   // Ser atacado acorda e enfurece o monstro.
   if (!defender.isPlayer && defender.hp > 0) {
@@ -39,7 +45,7 @@ export function rangedAttack(game: Game, attacker: Actor, defender: Actor, atk: 
   }
 }
 
-function resolveAttack(game: Game, attacker: Actor, defender: Actor, atk: Attack): void {
+function resolveAttack(game: Game, attacker: Actor, defender: Actor, atk: Attack, mult = 1, sneak = false): void {
   const rng = game.rng.combat;
   const a = theName(attacker);
   const d = theName(defender);
@@ -49,8 +55,9 @@ function resolveAttack(game: Game, attacker: Actor, defender: Actor, atk: Attack
     else message(game, `${capitalize(a)} erra você.`, 'darkGray');
     return;
   }
-  const dmg = Math.max(1, rng.roll(atk.damage));
-  if (attacker.isPlayer) message(game, `Você acerta ${d}.`, 'white');
+  const dmg = Math.max(1, Math.round(rng.roll(atk.damage) * mult));
+  if (attacker.isPlayer && sneak) message(game, `Ataque furtivo! Você acerta ${d} em cheio.`, 'yellow');
+  else if (attacker.isPlayer) message(game, `Você acerta ${d}.`, 'white');
   else if (defender.isPlayer) message(game, `${capitalize(a)} ${atk.verb} você.`, 'lightRed');
   damage(game, defender, dmg, attacker);
 }

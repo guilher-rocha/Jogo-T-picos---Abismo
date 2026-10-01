@@ -1,7 +1,13 @@
 import type { Screen } from '../engine/screens';
 import type { Terminal } from '../engine/terminal';
 import type { KeyInput } from '../data/keymap';
-import { commandForKey, KEY_HELP } from '../data/keymap';
+import { commandForKey, directionForKey, KEY_HELP } from '../data/keymap';
+import { spellById } from '../data/spells';
+import type { SpellDef } from '../data/spells';
+import { spellFailChance } from '../core/spells';
+import { ABILITY_RULES, abilityReadyIn, activeAbilities } from '../core/abilities';
+import type { MenuEntry } from './menuScreen';
+import { DirectionPrompt, MenuScreen } from './menuScreen';
 import type { Game } from '../core/game';
 import { isFree, level, message } from '../core/game';
 import { DIRS8, getTile, idx, isWalkable } from '../core/map';
@@ -19,7 +25,7 @@ import { playEvents } from './effects';
 import { THROW_RANGE } from '../core/actions';
 import type { Action } from '../core/actions';
 import { createMonster } from '../core/monster';
-import { MONSTERS } from '../data/monsters';
+import { monstersForDepth } from '../gen/populate';
 import { createGame, enterLevel } from '../core/world';
 import { playerAction } from '../core/turn';
 import { FOOT_Y, SIDE_X } from './layout';
@@ -47,8 +53,8 @@ export class GameScreen implements Screen {
     if (this.anims.busy) this.anims.skipAll();
     if (this.app.debug && this.debugKey(k)) return;
     if (this.game.over) {
-      // Provisório (a tela de Game Over vem na Etapa 3): Enter recomeça.
-      if (k.key === 'Enter') this.game = createGame((this.game.seed * 31 + 7) >>> 0);
+      // Provisório (a tela de Game Over vem na Etapa 3): Enter volta à criação de personagem.
+      if (k.key === 'Enter') this.app.restart();
       return;
     }
     const cmd = commandForKey(k);
@@ -77,6 +83,12 @@ export class GameScreen implements Screen {
       case 'ascend':
         this.act({ type: 'ascend' });
         break;
+      case 'cast':
+        this.openSpells();
+        break;
+      case 'abilities':
+        this.openAbilities();
+        break;
       case 'character':
         this.app.screens.push(new CharacterScreen(this.app, this.game));
         break;
@@ -90,6 +102,51 @@ export class GameScreen implements Screen {
         this.app.screens.push(new TextWindow(this.app, 'Ajuda — teclas', KEY_HELP.map(([key, desc]) => `{white}${key.padEnd(28)}{/} ${desc}`)));
         break;
     }
+  }
+
+  private openSpells(): void {
+    const g = this.game;
+    const known = g.hero.spells.map((id) => spellById(id)).filter((s): s is SpellDef => !!s);
+    if (!known.length) {
+      message(g, 'Você não conhece nenhuma magia.', 'darkGray');
+      return;
+    }
+    const entries: MenuEntry[] = known.map((s) => ({
+      label: `${s.name} — ${s.desc}`,
+      detail: `${s.cost} MP · ${spellFailChance(g, s)}% falha`,
+      color: s.color,
+      disabled: g.player.mp < s.cost,
+    }));
+    this.app.screens.push(new MenuScreen(this.app, `Magias (MP ${g.player.mp}/${g.player.maxMp})`, entries, (i) => {
+      const s = known[i];
+      if (s.shape === 'self') this.act({ type: 'cast', spellId: s.id });
+      else {
+        this.app.screens.push(new TargetScreen(this.app, g, {
+          mode: 'aim', prompt: `${s.name}: escolha o alvo.`, range: s.range,
+          onConfirm: (p) => this.act({ type: 'cast', spellId: s.id, tx: p.x, ty: p.y }),
+        }));
+      }
+    }, { width: 92 }));
+  }
+
+  private openAbilities(): void {
+    const g = this.game;
+    const list = activeAbilities(g);
+    if (!list.length) {
+      message(g, 'Você não tem habilidades ativas.', 'darkGray');
+      return;
+    }
+    const entries: MenuEntry[] = list.map((a) => {
+      const wait = abilityReadyIn(g, a.id);
+      const mp = ABILITY_RULES[a.id].mp;
+      return { label: `${a.name} — ${a.desc}`, detail: wait > 0 ? `${wait} turnos` : mp ? `${mp} MP` : 'pronta', disabled: wait > 0 };
+    });
+    this.app.screens.push(new MenuScreen(this.app, 'Habilidades', entries, (i) => {
+      const a = list[i];
+      if (ABILITY_RULES[a.id].needsDirection) {
+        this.app.screens.push(new DirectionPrompt(this.app, `${a.name}: em que direção?`, (dx, dy) => this.act({ type: 'ability', abilityId: a.id, dx, dy }), directionForKey));
+      } else this.act({ type: 'ability', abilityId: a.id });
+    }, { width: 92 }));
   }
 
   /** Corre numa direção até algo interessante acontecer. */
@@ -150,7 +207,7 @@ export class GameScreen implements Screen {
       const g = this.game;
       const d = DIRS8.find((d) => isFree(g, g.player.x + d.x, g.player.y + d.y));
       if (d) {
-        const m = createMonster(g, g.rng.loot.pick(MONSTERS), g.player.x + d.x, g.player.y + d.y, g.rng.loot);
+        const m = createMonster(g, g.rng.loot.pick(monstersForDepth(g.depth)), g.player.x + d.x, g.player.y + d.y, g.rng.loot);
         m.ai.state = 'hunting';
         level(g).actors.push(m);
         message(g, `[debug] ${m.name} criado`, 'lightMagenta');
