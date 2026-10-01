@@ -41,9 +41,11 @@ export function spawnMonsters(game: Game, level: Level, rng: RNG, depth: number)
   const free = (p: Point) => isWalkable(level.map, p.x, p.y) && !occupied.has(idx(level.map, p.x, p.y));
   let pi = 0;
   for (let attempts = 0; budget > 0 && attempts < 60 && pi < points.length; attempts++) {
-    const effDepth = rng.chance(8) ? depth + rng.int(2, 4) : depth;
+    // Monstro "fora de profundidade": mais forte que o normal, mas sempre sozinho.
+    const outOfDepth = depth >= 2 && rng.chance(8);
+    const effDepth = outOfDepth ? depth + rng.int(2, 3) : depth;
     const t = rng.weighted(monstersForDepth(effDepth).map((m) => ({ item: m, weight: m.rarity })));
-    const count = t.group ? rng.int(t.group[0], t.group[1]) : 1;
+    const count = t.group && !outOfDepth ? rng.int(t.group[0], t.group[1]) : 1;
     const origin = points[pi++];
     if (!free(origin)) continue;
     const spots = [origin];

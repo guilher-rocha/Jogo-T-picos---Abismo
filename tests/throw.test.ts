@@ -5,7 +5,13 @@ import { createMonster } from '../src/core/monster';
 import { monsterTemplate } from '../src/data/monsters';
 import { RNG } from '../src/engine/rng';
 import { projectileGlyph } from '../src/core/actions';
+import { createItem } from '../src/core/item';
+import { addToInventory } from '../src/core/inventory';
 import { createTestGame } from './helpers';
+
+function withDarts(g: ReturnType<typeof createTestGame>) {
+  return addToInventory(g, createItem(g, 'dart', { quantity: 5 }))!;
+}
 
 describe('arremesso', () => {
   it('o projétil para no primeiro monstro e emite evento com o caminho', () => {
@@ -15,7 +21,9 @@ describe('arremesso', () => {
     const m = createMonster(g, monsterTemplate('goblin'), 9, 4, new RNG(1));
     m.ai.state = 'sleeping';
     level(g).actors.push(m);
-    expect(playerAction(g, { type: 'throw', tx: 12, ty: 4 })).toBe(true);
+    const darts = withDarts(g);
+    expect(playerAction(g, { type: 'throw', itemId: darts.id, tx: 12, ty: 4 })).toBe(true);
+    expect(darts.quantity).toBe(4);
     const proj = g.events.find((e) => e.type === 'projectile');
     expect(proj && proj.type === 'projectile' && proj.path[proj.path.length - 1]).toEqual({ x: 9, y: 4 });
     // Ser alvejado acorda o monstro.
@@ -26,7 +34,7 @@ describe('arremesso', () => {
     const g = createTestGame(3);
     g.player.x = 5;
     g.player.y = 2;
-    playerAction(g, { type: 'throw', tx: 5, ty: -5 });
+    playerAction(g, { type: 'throw', itemId: withDarts(g).id, tx: 5, ty: -5 });
     const proj = g.events.find((e) => e.type === 'projectile');
     expect(proj && proj.type === 'projectile' && proj.path.length).toBe(0);
   });

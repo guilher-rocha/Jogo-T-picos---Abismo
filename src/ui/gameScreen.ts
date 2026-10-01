@@ -22,8 +22,11 @@ import { gainXp, xpForLevel } from '../core/hero';
 import { raceById } from '../data/races';
 import { AnimationQueue } from '../engine/animations';
 import { playEvents } from './effects';
-import { THROW_RANGE } from '../core/actions';
 import type { Action } from '../core/actions';
+import type { ItemHost } from './itemMenus';
+import { EquipmentScreen, InventoryScreen, fireCommand, pickFromInventory, pickupCommand, throwCommand } from './itemMenus';
+import { isEquipped, slotOf } from '../core/inventory';
+import { itemBase } from '../data/items';
 import { createMonster } from '../core/monster';
 import { monstersForDepth } from '../gen/populate';
 import { createGame, enterLevel } from '../core/world';
@@ -32,17 +35,17 @@ import { FOOT_Y, SIDE_X } from './layout';
 import { drawMap } from './mapView';
 import { drawMessages, drawSidebar } from './hud';
 
-export class GameScreen implements Screen {
+export class GameScreen implements Screen, ItemHost {
   private anims = new AnimationQueue();
 
-  constructor(private app: App, private game: Game) {}
+  constructor(public app: App, public game: Game) {}
 
   update(dt: number): void {
     this.anims.update(dt);
   }
 
   /** Executa uma ação do jogador e transforma o que aconteceu em animações. */
-  private act(action: Action): boolean {
+  act(action: Action): boolean {
     const ok = playerAction(this.game, action);
     playEvents(this.anims, this.game.events);
     return ok;
@@ -70,12 +73,51 @@ export class GameScreen implements Screen {
         this.act({ type: 'wait' });
         break;
       case 'throw':
-        this.app.screens.push(new TargetScreen(this.app, this.game, {
-          mode: 'aim',
-          prompt: 'Arremessar o dardo em quem?',
-          range: THROW_RANGE,
-          onConfirm: (p) => this.act({ type: 'throw', tx: p.x, ty: p.y }),
-        }));
+        throwCommand(this);
+        break;
+      case 'inventory':
+        this.app.screens.push(new InventoryScreen(this));
+        break;
+      case 'equipment':
+        this.app.screens.push(new EquipmentScreen(this));
+        break;
+      case 'pickup':
+        pickupCommand(this);
+        break;
+      case 'drop':
+        pickFromInventory(this, 'Largar o quê?', null, (i) => this.act({ type: 'drop', itemId: i.id }));
+        break;
+      case 'wield':
+        pickFromInventory(this, 'Empunhar o quê?', ['weapon', 'launcher'], (i) => this.act({ type: 'equip', itemId: i.id }), (i) => !isEquipped(this.game, i));
+        break;
+      case 'wear':
+        pickFromInventory(this, 'Vestir o quê?', ['armor', 'shield', 'helm', 'gloves', 'boots', 'cloak', 'light'], (i) => this.act({ type: 'equip', itemId: i.id }), (i) => !isEquipped(this.game, i));
+        break;
+      case 'puton':
+        pickFromInventory(this, 'Colocar o quê?', ['ring', 'amulet'], (i) => this.act({ type: 'equip', itemId: i.id }), (i) => !isEquipped(this.game, i));
+        break;
+      case 'takeoff':
+        pickFromInventory(this, 'Tirar o quê?', null, (i) => this.act({ type: 'unequip', slot: slotOf(this.game, i)! }), (i) => isEquipped(this.game, i));
+        break;
+      case 'quiver':
+        pickFromInventory(this, 'Pôr o que na aljava?', ['ammo', 'weapon'], (i) => this.act({ type: 'equip', itemId: i.id }), (i) => itemBase(i.baseId).category === 'ammo' && !isEquipped(this.game, i));
+        break;
+      case 'quaff':
+        pickFromInventory(this, 'Beber o quê?', ['potion'], (i) => this.act({ type: 'quaff', itemId: i.id }));
+        break;
+      case 'eat':
+        pickFromInventory(this, 'Comer o quê?', ['food', 'corpse'], (i) => this.act({ type: 'eat', itemId: i.id }));
+        break;
+      case 'read':
+        pickFromInventory(this, 'Ler o quê?', ['scroll', 'book'], (i) => this.act({ type: 'read', itemId: i.id }));
+        break;
+      case 'zap':
+        pickFromInventory(this, 'Usar qual varinha?', ['wand'], (i) => this.app.screens.push(new TargetScreen(this.app, this.game, {
+          mode: 'aim', prompt: 'Apontar para onde?', onConfirm: (p) => this.act({ type: 'zap', itemId: i.id, tx: p.x, ty: p.y }),
+        })));
+        break;
+      case 'fire':
+        fireCommand(this);
         break;
       case 'descend':
         this.act({ type: 'descend' });

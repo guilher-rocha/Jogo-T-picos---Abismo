@@ -1,7 +1,7 @@
 import type { Terminal } from '../engine/terminal';
 import type { Color } from '../engine/colors';
 import { Tile, tileDef } from '../data/tiles';
-import { monsterTemplate } from '../data/monsters';
+import { itemColor, itemGlyph } from '../core/itemText';
 import type { Game } from '../core/game';
 import { level } from '../core/game';
 import { idx } from '../core/map';
@@ -13,12 +13,8 @@ import { playerTracking } from '../core/abilities';
 /** Terrenos importantes que continuam bem visíveis na memória. */
 const REMEMBER_BRIGHT = new Set<number>([Tile.StairsDown, Tile.StairsUp, Tile.DoorClosed, Tile.DoorOpen, Tile.Fountain, Tile.Altar]);
 
-export function itemGlyph(item: Item): { glyph: string; color: Color } {
-  if (item.baseId === 'corpse') {
-    const color = item.corpseOf ? monsterTemplate(item.corpseOf).color : 'lightGray';
-    return { glyph: '%', color };
-  }
-  return { glyph: '?', color: 'white' };
+export function itemGlyphColor(item: Item): { glyph: string; color: Color } {
+  return { glyph: itemGlyph(item), color: itemColor(item) };
 }
 
 /** Desenha terreno (visível/memória), itens e atores visíveis. */
@@ -43,7 +39,7 @@ export function drawMap(term: Terminal, game: Game): void {
   for (const item of lvl.items) {
     const i = idx(map, item.x, item.y);
     if (!map.explored[i]) continue;
-    const g = itemGlyph(item);
+    const g = itemGlyphColor(item);
     term.set(MAP_X + item.x, MAP_Y + item.y, g.glyph, map.visible[i] ? g.color : 'darkGray');
   }
   const tracking = playerTracking(game);

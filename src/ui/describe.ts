@@ -5,7 +5,7 @@ import { tileDef } from '../data/tiles';
 import { monsterTemplate } from '../data/monsters';
 import { aName, capitalize, healthDesc } from '../core/text';
 import { itemsAt } from '../core/item';
-import { itemName } from './itemText';
+import { itemName } from '../core/itemText';
 
 const AI_STATE: Record<string, string> = {
   sleeping: 'dormindo',
@@ -28,7 +28,7 @@ export function describeCell(game: Game, x: number, y: number): string {
     parts.push(`${capitalize(aName(a))} (${healthDesc(a)}, ${AI_STATE[a.ai.state]}). ${t.desc}`);
   }
   const items = itemsAt(lvl, x, y);
-  if (items.length) parts.push(`Itens: ${items.map((i) => itemName(i)).join(', ')}.`);
+  if (items.length) parts.push(`Itens: ${items.map((i) => itemName(game, i)).join(', ')}.`);
   if (!a) parts.push(`${capitalize(tileDef(map.tiles[idx(map, x, y)]).name)}${visible ? '' : ' (lembrança)'}.`);
   return parts.join(' ');
 }

@@ -72,6 +72,8 @@ export interface Actor {
   xpValue: number;
   ai: AiMemory;
   flags: string[];
+  /** Resistências elementais em % (50 = metade do dano, 100 = imune). */
+  resist?: Partial<Record<Element, number>>;
 }
 
 export function createActor(id: number, props: Partial<Actor> & Pick<Actor, 'templateId' | 'name' | 'glyph' | 'color'>): Actor {

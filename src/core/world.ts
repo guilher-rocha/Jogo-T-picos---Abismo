@@ -6,6 +6,11 @@ import { buildLevel } from '../gen/level';
 import { themeById, themeForDepth } from '../data/themes';
 import { isWalkable, DIRS8 } from './map';
 import { createHero, gainXp, recalcPlayer } from './hero';
+import { classById } from '../data/classes';
+import { CATEGORY_SLOT, itemBase } from '../data/items';
+import { createItem } from './item';
+import type { Item } from './item';
+import { addToInventory, equip, equipped } from './inventory';
 
 /** Escolhas feitas na criação do personagem. */
 export interface HeroSpec {
@@ -33,12 +38,31 @@ export function createGame(seed: number, spec: HeroSpec = DEFAULT_HERO): Game {
     rng: createRngs(seed),
     nextId: 2,
   };
+  giveStartingKit(game);
   recalcPlayer(game);
   game.player.hp = game.player.maxHp;
   game.player.mp = game.player.maxMp;
   enterLevel(game, 1, 'up');
   message(game, 'Você desce para o Abismo. Encontre o caminho para baixo...', 'yellow');
   return game;
+}
+
+/** Itens iniciais da classe, já equipados. */
+export function giveStartingKit(game: Game): void {
+  const added: Item[] = [];
+  for (const id of classById(game.hero.classId).startingItems) {
+    const base = itemBase(id);
+    const item = addToInventory(game, createItem(game, id, { quantity: base.category === 'ammo' ? 40 : 1 }));
+    if (item && !added.includes(item)) added.push(item);
+  }
+  // Equipa, na ordem da lista da classe, o primeiro item de cada slot.
+  for (const item of added) {
+    const slot = CATEGORY_SLOT[itemBase(item.baseId).category];
+    if (slot && equipped(game, slot) === undefined) {
+      if (slot === 'offhand' && equipped(game, 'weapon') && itemBase(equipped(game, 'weapon')!.baseId).twoHanded) continue;
+      equip(game, item, true);
+    }
+  }
 }
 
 /**

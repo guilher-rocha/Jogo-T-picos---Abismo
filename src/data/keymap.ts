@@ -11,7 +11,21 @@ export type CommandName =
   | 'ascend'
   | 'character'
   | 'cast'
-  | 'abilities';
+  | 'abilities'
+  | 'inventory'
+  | 'equipment'
+  | 'pickup'
+  | 'drop'
+  | 'wield'
+  | 'wear'
+  | 'takeoff'
+  | 'puton'
+  | 'quaff'
+  | 'eat'
+  | 'read'
+  | 'zap'
+  | 'fire'
+  | 'quiver';
 
 export interface Command {
   name: CommandName;
@@ -59,6 +73,21 @@ const SIMPLE_KEYS: Record<string, CommandName> = {
   x: 'look',
   ';': 'look',
   C: 'character',
+  i: 'inventory',
+  e: 'equipment',
+  g: 'pickup',
+  ',': 'pickup',
+  d: 'drop',
+  w: 'wield',
+  W: 'wear',
+  T: 'takeoff',
+  P: 'puton',
+  q: 'quaff',
+  E: 'eat',
+  r: 'read',
+  z: 'zap',
+  f: 'fire',
+  Q: 'quiver',
   m: 'cast',
   Z: 'cast',
   A: 'abilities',
@@ -74,7 +103,15 @@ export const KEY_HELP: [string, string][] = [
   ['Shift + direção', 'correr'],
   ['. ou numpad 5', 'esperar um turno'],
   ['> / <', 'descer / subir escada'],
-  ['t', 'arremessar (dardo)'],
+  ['i / e', 'inventário / equipamento'],
+  ['g ou ,', 'pegar item'],
+  ['d', 'largar item'],
+  ['w / W', 'empunhar arma / vestir armadura'],
+  ['T / P', 'tirar / colocar anel ou amuleto'],
+  ['q / E', 'beber poção / comer'],
+  ['r / z', 'ler pergaminho / usar varinha'],
+  ['t', 'arremessar item'],
+  ['f / Q', 'disparar arma de disparo / escolher munição'],
   ['x ou ;', 'olhar (inspecionar o mapa)'],
   ['m ou Z', 'conjurar magia'],
   ['A', 'habilidades de classe'],

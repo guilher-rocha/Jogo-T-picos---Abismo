@@ -1,28 +1,44 @@
 import type { Actor } from './actor';
 import { ACTION_COST, hasFlag } from './actor';
 import type { Game } from './game';
-import { actorAt, emit, level, message } from './game';
-import type { Point } from './map';
-import { getTile, isTransparent, isWalkable, setTile } from './map';
-import { bresenham } from './fov';
+import { actorAt, level, message } from './game';
+import { getTile, isWalkable, setTile } from './map';
 import { Tile } from '../data/tiles';
-import { meleeAttack, rangedAttack } from './combat';
+import { meleeAttack } from './combat';
 import { enterLevel } from './world';
 import { castSpell } from './spells';
 import { useAbility } from './abilities';
 import { MAX_DEPTH } from '../data/themes';
 import { capitalize, theName } from './text';
+import type { EquipSlot } from '../data/items';
+import { itemBase } from '../data/items';
+import { itemsAt } from './item';
+import { burden, describeFloor, dropItem, equip, pickUp, unequip } from './inventory';
+import { eat, quaff, readItem, zapWand } from './consumables';
+import { fire, throwItem } from './ranged';
+import { recalcPlayer } from './hero';
+
+export { THROW_RANGE, projectileGlyph } from './ranged';
 
 /** Ações possíveis. Jogador e monstros usam exatamente as mesmas. */
 export type Action =
   | { type: 'move'; dx: number; dy: number }
   | { type: 'attack'; dx: number; dy: number }
-  | { type: 'throw'; tx: number; ty: number }
   | { type: 'wait' }
   | { type: 'descend' }
   | { type: 'ascend' }
   | { type: 'cast'; spellId: string; tx?: number; ty?: number }
-  | { type: 'ability'; abilityId: string; dx?: number; dy?: number };
+  | { type: 'ability'; abilityId: string; dx?: number; dy?: number }
+  | { type: 'pickup'; itemId?: number }
+  | { type: 'drop'; itemId: number; quantity?: number }
+  | { type: 'equip'; itemId: number }
+  | { type: 'unequip'; slot: EquipSlot }
+  | { type: 'quaff'; itemId: number }
+  | { type: 'eat'; itemId: number }
+  | { type: 'throw'; itemId: number; tx: number; ty: number }
+  | { type: 'fire'; tx: number; ty: number }
+  | { type: 'read'; itemId: number }
+  | { type: 'zap'; itemId: number; tx: number; ty: number };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -37,8 +53,6 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       meleeAttack(game, actor, target);
       return ACTION_COST;
     }
-    case 'throw':
-      return doThrow(game, actor, action.tx, action.ty);
     case 'wait':
       return ACTION_COST;
     case 'cast':
@@ -49,7 +63,72 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       return doStairs(game, actor, 'down');
     case 'ascend':
       return doStairs(game, actor, 'up');
+    case 'fire':
+      return actor.isPlayer ? fire(game, actor, { x: action.tx, y: action.ty }) : 0;
   }
+  // Ações de inventário: só o jogador.
+  if (!actor.isPlayer) return 0;
+  return performItemAction(game, action);
+}
+
+function findItem(game: Game, id: number) {
+  return game.hero.inventory.find((i) => i.id === id);
+}
+
+function performItemAction(game: Game, action: Action): number {
+  switch (action.type) {
+    case 'pickup': {
+      const here = itemsAt(level(game), game.player.x, game.player.y);
+      const item = action.itemId !== undefined ? here.find((i) => i.id === action.itemId) : here[0];
+      if (!item) {
+        message(game, 'Não há nada aqui para pegar.', 'darkGray');
+        return 0;
+      }
+      if (!pickUp(game, item)) return 0;
+      recalcPlayer(game);
+      return ACTION_COST;
+    }
+    case 'drop': {
+      const item = findItem(game, action.itemId);
+      if (!item || !dropItem(game, item, action.quantity)) return 0;
+      recalcPlayer(game);
+      return ACTION_COST;
+    }
+    case 'equip': {
+      const item = findItem(game, action.itemId);
+      if (!item || !equip(game, item)) return 0;
+      recalcPlayer(game);
+      return ACTION_COST;
+    }
+    case 'unequip':
+      if (!unequip(game, action.slot)) return 0;
+      recalcPlayer(game);
+      return ACTION_COST;
+    case 'quaff': {
+      const item = findItem(game, action.itemId);
+      return item ? quaff(game, item) : 0;
+    }
+    case 'eat': {
+      const item = findItem(game, action.itemId);
+      return item ? eat(game, item) : 0;
+    }
+    case 'throw': {
+      const item = findItem(game, action.itemId);
+      if (!item) return 0;
+      const cost = throwItem(game, game.player, item, { x: action.tx, y: action.ty });
+      recalcPlayer(game);
+      return cost;
+    }
+    case 'read': {
+      const item = findItem(game, action.itemId);
+      return item ? readItem(game, item) : 0;
+    }
+    case 'zap': {
+      const item = findItem(game, action.itemId);
+      return item ? zapWand(game, item, { x: action.tx, y: action.ty }) : 0;
+    }
+  }
+  return 0;
 }
 
 function doStairs(game: Game, actor: Actor, dir: 'up' | 'down'): number {
@@ -74,42 +153,6 @@ function doStairs(game: Game, actor: Actor, dir: 'up' | 'down'): number {
   }
   enterLevel(game, game.depth - 1, 'down');
   return ACTION_COST;
-}
-
-export const THROW_RANGE = 8;
-
-/**
- * Arremessa um dardo (subetapa 1.7: estoque infinito; vira item de inventário na 2.4).
- * O projétil segue a linha de Bresenham e para no primeiro ator ou parede.
- */
-function doThrow(game: Game, actor: Actor, tx: number, ty: number): number {
-  if (tx === actor.x && ty === actor.y) return 0;
-  const map = level(game).map;
-  const line = bresenham(actor.x, actor.y, tx, ty).slice(1, THROW_RANGE + 1);
-  const path: Point[] = [];
-  let hit: Actor | undefined;
-  for (const p of line) {
-    if (!isTransparent(map, p.x, p.y)) break;
-    path.push(p);
-    const other = actorAt(game, p.x, p.y);
-    if (other) {
-      hit = other;
-      break;
-    }
-  }
-  if (actor.isPlayer) message(game, 'Você arremessa um dardo.', 'lightGray');
-  emit(game, { type: 'projectile', path, glyph: projectileGlyph(tx - actor.x, ty - actor.y), color: 'lightGray' });
-  if (hit) rangedAttack(game, actor, hit, { verb: 'acerta', damage: '1d4+1' }, 'o dardo');
-  return ACTION_COST;
-}
-
-/** Glifo do projétil conforme a direção: - | / \ */
-export function projectileGlyph(dx: number, dy: number): string {
-  const ax = Math.abs(dx);
-  const ay = Math.abs(dy);
-  if (ay * 2 < ax) return '-';
-  if (ax * 2 < ay) return '|';
-  return Math.sign(dx) === Math.sign(dy) ? '\\' : '/';
 }
 
 /** Mover: ataca se houver inimigo, abre porta se estiver fechada, senão anda. */
@@ -139,7 +182,16 @@ function doMove(game: Game, actor: Actor, dx: number, dy: number): number {
     return 0;
   }
   if (!isWalkable(map, nx, ny)) return 0;
+  if (actor.isPlayer && burden(game) === 2) {
+    message(game, 'Você está carregando peso demais para andar!', 'orange');
+    return 0;
+  }
   actor.x = nx;
   actor.y = ny;
+  if (actor.isPlayer) {
+    // Ouro é pego automaticamente.
+    for (const it of itemsAt(level(game), nx, ny)) if (itemBase(it.baseId).category === 'gold') pickUp(game, it);
+    describeFloor(game);
+  }
   return ACTION_COST;
 }
