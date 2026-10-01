@@ -16,6 +16,8 @@ import { HighScoresScreen } from './ui/highScoresScreen';
 import { AttractScreen } from './ui/attractScreen';
 import { GameOverScreen } from './ui/gameOverScreen';
 import { morgueLines } from './core/morgue';
+import { deleteSave, hasSave, loadGame, loadHighScores, saveGame, saveHighScores } from './persist/save';
+import { message } from './core/game';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const term = new Terminal(SCREEN_COLS, SCREEN_ROWS);
@@ -53,18 +55,40 @@ const app: App = {
   showTitle: () => screens.replace(new TitleScreen(app)),
   restart: () => app.showTitle(),
   newGame: () => screens.replace(new CreationScreen(app, (spec) => startGame(spec))),
-  hasSave: () => false,
-  continueGame: () => {},
+  hasSave: () => hasSave(),
+  continueGame: () => {
+    const { game, error } = loadGame();
+    if (!game) {
+      if (error) console.warn('Save descartado:', error);
+      app.showTitle();
+      return;
+    }
+    message(game, `Bem-vindo de volta, ${game.hero.name}.`, 'yellow');
+    screens.replace(new GameScreen(app, game));
+  },
   dailyChallenge: () => {},
   showOptions: () => {},
   showHighScores: (cycle, highlight) => screens.replace(new HighScoresScreen(app, { cycle, highlight })),
   startAttract: () => screens.replace(new AttractScreen(app, 777 + attractCount++ * 101)),
-  gameOver: (game: Game, rank: number) => screens.replace(new GameOverScreen(app, game, rank)),
+  gameOver: (game: Game, rank: number) => {
+    deleteSave();
+    screens.replace(new GameOverScreen(app, game, rank));
+  },
   exportMorgue: (game: Game) => download(`abismo-${game.hero.name}-${game.seed}.txt`, morgueLines(game).join('\n')),
-  highScores: [],
+  highScores: loadHighScores(),
   features: { daily: false, options: false },
-  recordScore: (entry) => insertHighScore(app.highScores, entry),
+  recordScore: (entry) => {
+    const rank = insertHighScore(app.highScores, entry);
+    saveHighScores(app.highScores);
+    return rank;
+  },
 };
+
+// Fechar a aba no meio de uma partida salva o progresso.
+window.addEventListener('beforeunload', () => {
+  const top = screens.top;
+  if (top instanceof GameScreen && !top.game.over) saveGame(top.game);
+});
 
 // ?quick=1 pula título e criação (útil para testes); ?class=mage&race=elf escolhe a combinação.
 if (quick) startGame({ ...DEFAULT_HERO, classId: classParam ?? DEFAULT_HERO.classId, raceId: raceParam ?? DEFAULT_HERO.raceId });

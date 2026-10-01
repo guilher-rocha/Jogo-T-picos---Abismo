@@ -28,7 +28,8 @@ export type CommandName =
   | 'quiver'
   | 'invoke'
   | 'search'
-  | 'rest';
+  | 'rest'
+  | 'save';
 
 export interface Command {
   name: CommandName;
@@ -94,6 +95,7 @@ const SIMPLE_KEYS: Record<string, CommandName> = {
   '&': 'invoke',
   s: 'search',
   R: 'rest',
+  S: 'save',
   m: 'cast',
   Z: 'cast',
   A: 'abilities',
@@ -126,6 +128,7 @@ export const KEY_HELP: [string, string][] = [
   ['A', 'habilidades de classe'],
   ['C', 'ficha do personagem (e pontos de atributo)'],
   ['M ou Ctrl+P', 'histórico de mensagens'],
+  ['S', 'salvar e voltar ao título'],
   ['?', 'esta ajuda'],
 ];
 

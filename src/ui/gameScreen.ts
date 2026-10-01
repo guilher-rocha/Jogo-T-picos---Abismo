@@ -30,6 +30,7 @@ import { itemBase } from '../data/items';
 import { createMonster } from '../core/monster';
 import { threatsVisible } from '../ai/bot';
 import { damage } from '../core/combat';
+import { saveGame } from '../persist/save';
 import { monstersForDepth } from '../gen/populate';
 import { createGame, enterLevel } from '../core/world';
 import { playerAction } from '../core/turn';
@@ -48,12 +49,19 @@ export class GameScreen implements Screen, ItemHost {
   }
 
   private recorded = false;
+  private lastSave = 0;
   private overAt = 0;
   private rank = -1;
 
   /** Executa uma ação do jogador e transforma o que aconteceu em animações. */
   act(action: Action): boolean {
+    const depth = this.game.depth;
     const ok = playerAction(this.game, action);
+    // Autosave ao trocar de andar e a cada 100 turnos.
+    if (ok && !this.game.over && (this.game.depth !== depth || this.game.turn - this.lastSave >= 100)) {
+      saveGame(this.game);
+      this.lastSave = this.game.turn;
+    }
     playEvents(this.anims, this.game.events);
     if (this.game.over && !this.recorded) {
       this.recorded = true;
@@ -139,6 +147,11 @@ export class GameScreen implements Screen, ItemHost {
         break;
       case 'rest':
         this.rest();
+        break;
+      case 'save':
+        if (saveGame(this.game)) {
+          this.app.showTitle();
+        } else message(this.game, 'Não foi possível salvar (armazenamento do navegador indisponível).', 'lightRed');
         break;
       case 'descend':
         this.act({ type: 'descend' });
