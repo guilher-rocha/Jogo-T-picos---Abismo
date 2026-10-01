@@ -29,7 +29,10 @@ import { EquipmentScreen, InventoryScreen, discoveriesScreen, fireCommand, pickF
 import { isEquipped, slotOf } from '../core/inventory';
 import { itemBase } from '../data/items';
 import { createMonster } from '../core/monster';
-import { threatsVisible } from '../ai/bot';
+import { stepToward, threatsVisible } from '../ai/bot';
+import { autoExploreStep } from '../ai/explore';
+import { aName, capitalize } from '../core/text';
+import { showHints } from '../core/hints';
 import { damage } from '../core/combat';
 import { saveGame } from '../persist/save';
 import { monstersForDepth } from '../gen/populate';
@@ -52,9 +55,12 @@ export class GameScreen implements Screen, ItemHost {
 
   onEnter(): void {
     sound.setMusicTheme(level(this.game).theme);
+    if (this.app.settings.hints && this.game.turn === 0) showHints(this.game);
   }
 
   private recorded = false;
+  /** Itens em que o autoexplorar já parou (não volta para eles). */
+  private exploredItems = new Set<number>();
   private lastSave = 0;
   private overAt = 0;
   private rank = -1;
@@ -64,6 +70,7 @@ export class GameScreen implements Screen, ItemHost {
     const depth = this.game.depth;
     const ok = playerAction(this.game, action);
     playSounds(this.game.events);
+    if (this.app.settings.hints && ok) showHints(this.game);
     if (this.game.over?.won) sound.play('victory');
     if (this.game.depth !== depth) sound.setMusicTheme(level(this.game).theme);
     // Autosave ao trocar de andar e a cada 100 turnos.
@@ -140,6 +147,12 @@ export class GameScreen implements Screen, ItemHost {
         pickFromInventory(this, 'Beber o quê?', ['potion'], (i) => this.act({ type: 'quaff', itemId: i.id }));
         break;
       }
+      case 'explore':
+        this.autoExplore();
+        break;
+      case 'travel':
+        this.travelToStairs();
+        break;
       case 'disarm':
         this.app.screens.push(new DirectionPrompt(this.app, 'Desarmar em que direção?', (dx, dy) => this.act({ type: 'disarm', dx, dy }), directionForKey));
         break;
@@ -252,6 +265,57 @@ export class GameScreen implements Screen, ItemHost {
         this.app.screens.push(new DirectionPrompt(this.app, `${a.name}: em que direção?`, (dx, dy) => this.act({ type: 'ability', abilityId: a.id, dx, dy }), directionForKey));
       } else this.act({ type: 'ability', abilityId: a.id });
     }, { width: 92 }));
+  }
+
+  /** Explora sozinho até ver um monstro, achar um item, levar dano ou não ter mais o que explorar. */
+  private autoExplore(): void {
+    const g = this.game;
+    if (threatsVisible(g).length) {
+      message(g, 'Há inimigos por perto!', 'orange');
+      return;
+    }
+    for (let i = 0; i < 400; i++) {
+      if (g.over) return;
+      const hp = g.player.hp;
+      const step = autoExploreStep(g, this.exploredItems);
+      if (!step) {
+        message(g, 'Não há mais nada para explorar aqui. (G vai até a escada; s procura passagens secretas.)', 'lightGray');
+        return;
+      }
+      if ('blockedBy' in step) {
+        message(g, `${capitalize(aName(step.blockedBy))} bloqueia o caminho.`, 'orange');
+        return;
+      }
+      if (!this.act(step)) return;
+      if (threatsVisible(g).length || g.player.hp < hp) return;
+      const here = itemsAt(level(g), g.player.x, g.player.y).filter((it) => !this.exploredItems.has(it.id));
+      if (here.length) {
+        // Para no item (uma vez só: da próxima vez segue explorando).
+        for (const it of here) this.exploredItems.add(it.id);
+        return;
+      }
+    }
+  }
+
+  /** Vai até a escada de descida já vista. */
+  private travelToStairs(): void {
+    const g = this.game;
+    const map = level(g).map;
+    const i = map.tiles.findIndex((t, k) => t === Tile.StairsDown && map.explored[k]);
+    if (i < 0) {
+      message(g, 'Você ainda não encontrou a escada para baixo.', 'lightGray');
+      return;
+    }
+    const target = { x: i % map.width, y: Math.floor(i / map.width) };
+    for (let n = 0; n < 300; n++) {
+      if (g.over || (g.player.x === target.x && g.player.y === target.y)) return;
+      if (threatsVisible(g).length) {
+        message(g, 'Você para: há inimigos à vista.', 'orange');
+        return;
+      }
+      const step = stepToward(g, [target]);
+      if (!step || !this.act(step)) return;
+    }
   }
 
   /** Descansa (procurando) até curar HP/MP, ser atacado ou ver um monstro. */

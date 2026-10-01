@@ -34,6 +34,16 @@ export function botAction(game: Game): Action {
     if (game.hero.spells.includes('cure_light') && p.mp >= 3) return { type: 'cast', spellId: 'cure_light' };
   }
 
+  // 1b. Fome: come o que tiver (ou um cadáver seguro no chão).
+  if (game.hero.nutrition < 500) {
+    const food = game.hero.inventory.find((i) => itemBase(i.baseId).category === 'food');
+    if (food) return { type: 'eat', itemId: food.id };
+    const safe = itemsAt(lvl, p.x, p.y).find((i) => i.baseId === 'corpse' && !['giant_spider', 'poison_fungus', 'serpent', 'green_jelly', 'zombie', 'skeleton', 'wraith', 'vampire'].includes(i.corpseOf ?? ''));
+    if (safe && !visible.length) return { type: 'pickup', itemId: safe.id };
+    const corpse = game.hero.inventory.find((i) => i.baseId === 'corpse');
+    if (corpse) return { type: 'eat', itemId: corpse.id };
+  }
+
   // 2. Inimigo adjacente: ataca o mais fraco.
   const adjacent = visible.filter((a) => distance(a, p) === 1).sort((a, b) => a.hp - b.hp);
   if (adjacent.length) {
@@ -161,17 +171,31 @@ function findTile(game: Game, tile: number): Point | undefined {
 }
 
 /** Passo em direção ao objetivo mais próximo (por caminho, não em linha reta). */
-function stepToward(game: Game, goals: Point[]): Action | null {
+export function stepToward(game: Game, goals: Point[], opts: { avoidMonsters?: boolean } = {}): Action | null {
   const map = level(game).map;
   const p = game.player;
   // Só caminha por células conhecidas (o bot não "trapaceia" vendo o mapa inteiro).
   const known = { ...map, tiles: map.tiles.map((t, i) => (map.explored[i] ? t : Tile.Wall)) };
   const dist = dijkstraMap(known, goals);
   if (dist[idx(map, p.x, p.y)] >= UNREACHABLE) return null;
-  const blocked = (x: number, y: number) =>
-    (!isWalkable(map, x, y) && map.tiles[idx(map, x, y)] !== Tile.DoorClosed) || level(game).actors.some((m) => m.x === x && m.y === y);
-  const step = stepDownhill(map, dist, p, blocked);
-  return step ? { type: 'move', dx: step.x, dy: step.y } : null;
+  const terrainBlocked = (x: number, y: number) => !isWalkable(map, x, y) && map.tiles[idx(map, x, y)] !== Tile.DoorClosed;
+  const occupied = (x: number, y: number) => level(game).actors.some((m) => m.x === x && m.y === y);
+  // Primeiro tenta um passo livre; se só houver caminho através de um monstro, o bot ataca.
+  const free = stepDownhill(map, dist, p, (x, y) => terrainBlocked(x, y) || occupied(x, y));
+  if (free) return { type: 'move', dx: free.x, dy: free.y };
+  if (opts.avoidMonsters) return null;
+  const through = stepDownhill(map, dist, p, terrainBlocked);
+  return through ? { type: 'move', dx: through.x, dy: through.y } : null;
+}
+
+/** Um monstro está bloqueando o caminho até os objetivos? (para avisar o jogador) */
+export function blockingMonster(game: Game, goals: Point[]) {
+  const map = level(game).map;
+  const p = game.player;
+  const known = { ...map, tiles: map.tiles.map((t, i) => (map.explored[i] ? t : Tile.Wall)) };
+  const dist = dijkstraMap(known, goals);
+  const step = stepDownhill(map, dist, p, (x, y) => !isWalkable(map, x, y) && map.tiles[idx(map, x, y)] !== Tile.DoorClosed);
+  return step ? level(game).actors.find((m) => m.x === p.x + step.x && m.y === p.y + step.y) : undefined;
 }
 
 function randomStep(game: Game): Action {
