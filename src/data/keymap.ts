@@ -2,7 +2,9 @@
 export type CommandName =
   | 'move'
   | 'run'
-  | 'wait';
+  | 'wait'
+  | 'messages'
+  | 'help';
 
 export interface Command {
   name: CommandName;
@@ -42,9 +44,29 @@ export function directionForKey(k: KeyInput): [number, number] | null {
   return null;
 }
 
+/** Teclas de um caractere que viram comandos sem direção. */
+const SIMPLE_KEYS: Record<string, CommandName> = {
+  M: 'messages',
+  '?': 'help',
+};
+
+/** Tabela de ajuda (mostrada com "?"). */
+export const KEY_HELP: [string, string][] = [
+  ['h j k l y u b n', 'mover / atacar (vi-keys)'],
+  ['setas, Home/PgUp/End/PgDn', 'mover / atacar'],
+  ['numpad 1-9', 'mover / atacar'],
+  ['Shift + direção', 'correr'],
+  ['. ou numpad 5', 'esperar um turno'],
+  ['M ou Ctrl+P', 'histórico de mensagens'],
+  ['?', 'esta ajuda'],
+];
+
 /** Traduz uma tecla do jogo principal num comando. Fonte única da verdade do mapa de teclas. */
 export function commandForKey(k: KeyInput): Command | null {
+  if (k.ctrl && (k.key === 'p' || k.key === 'P')) return { name: 'messages' };
   if (k.ctrl || k.alt) return null;
+  const simple = SIMPLE_KEYS[k.key];
+  if (simple) return { name: simple };
   if (k.code === 'Numpad5' || k.key === '.' || k.key === 'Clear') return { name: 'wait' };
   const viLower = k.key.length === 1 ? k.key.toLowerCase() : '';
   const isVi = VI_DIRS[viLower] !== undefined;

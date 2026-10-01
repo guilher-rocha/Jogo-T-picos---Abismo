@@ -4,6 +4,7 @@ import { ScreenManager } from './engine/screens';
 import type { KeyInput } from './data/keymap';
 import { SCREEN_COLS, SCREEN_ROWS } from './ui/layout';
 import { GameScreen } from './ui/gameScreen';
+import type { App } from './ui/app';
 import { createGame } from './core/world';
 import { freshSeed } from './engine/rng';
 
@@ -17,7 +18,8 @@ const params = new URLSearchParams(location.search);
 const debug = params.get('debug') === '1';
 const seedParam = params.get('seed');
 const seed = seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : freshSeed();
-screens.replace(new GameScreen(createGame(seed), { debug }));
+const app: App = { screens, debug };
+screens.replace(new GameScreen(app, createGame(seed)));
 
 /** Teclas que o navegador usaria para outra coisa (rolar a página, etc.). */
 const PREVENT = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', ' ', 'Tab', 'Backspace', '/', "'"]);
