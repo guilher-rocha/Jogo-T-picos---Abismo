@@ -1,29 +1,37 @@
 import { Terminal } from './engine/terminal';
 import { CanvasRenderer } from './engine/renderer';
-import { COLOR_NAMES } from './engine/colors';
-import { RNG } from './engine/rng';
-
-export const COLS = 100;
-export const ROWS = 30;
+import { ScreenManager } from './engine/screens';
+import type { KeyInput } from './data/keymap';
+import { SCREEN_COLS, SCREEN_ROWS } from './ui/layout';
+import { GameScreen } from './ui/gameScreen';
+import { createTestGame } from './core/game';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
-const term = new Terminal(COLS, ROWS);
+const term = new Terminal(SCREEN_COLS, SCREEN_ROWS);
 const renderer = new CanvasRenderer(canvas, term);
+const screens = new ScreenManager();
 window.addEventListener('resize', () => renderer.resize());
 
-// Tela de teste da subetapa 0.2: paleta, caixas, texto colorido e glifos aleatórios com seed.
-const rng = new RNG(12345);
-term.box(0, 0, COLS, ROWS, 'darkGray', 'Abismo — teste do renderizador');
-COLOR_NAMES.forEach((c, i) => {
-  term.print(2, 2 + i, `██ ${c}`, c);
+screens.replace(new GameScreen(createTestGame()));
+
+/** Teclas que o navegador usaria para outra coisa (rolar a página, etc.). */
+const PREVENT = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', ' ', 'Tab', 'Backspace', '/', "'"]);
+
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && ['r', 'R', 'F5'].includes(e.key)) return; // deixa recarregar
+  if (PREVENT.has(e.key) || e.key.length === 1) e.preventDefault();
+  if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+  const k: KeyInput = { key: e.key, code: e.code, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey };
+  screens.onKey(k);
 });
-term.print(30, 2, 'Texto com {red}cores{/} {yellow}inline{/} e {lightCyan}marcação{/}.');
-term.print(30, 4, 'Glifos: @ # . + \' < > ~ ^ { _ ) [ ! ? / = " % $ * &');
-const glyphs = '.#@!?$%)[=/"*&~^';
-for (let y = 7; y < 27; y++) {
-  for (let x = 30; x < 97; x++) {
-    term.set(x, y, rng.pick(glyphs.split('')), rng.pick(COLOR_NAMES.slice(1, 16)));
-  }
+
+let last = performance.now();
+function frame(now: number): void {
+  const dt = Math.min(100, now - last);
+  last = now;
+  screens.update(dt, now);
+  screens.render(term, now);
+  renderer.render();
+  requestAnimationFrame(frame);
 }
-term.printCenter(28, `seed 12345 → primeiros dados: ${rng.roll('3d6')}, ${rng.roll('1d20')}, ${rng.roll('2d4+1')}`, 'white');
-renderer.render();
+requestAnimationFrame(frame);
