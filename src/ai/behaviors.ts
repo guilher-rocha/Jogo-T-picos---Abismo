@@ -104,6 +104,7 @@ function blockedFor(game: Game, m: Actor) {
     if (other && !other.isPlayer) return true;
     const t = map.tiles[y * map.width + x];
     if (t === Tile.DoorClosed) return !hasFlag(m, 'opensDoors');
+    if (t === Tile.Lava && (m.resist?.fire ?? 0) < 100) return true;
     return !isWalkable(map, x, y) && !other;
   };
 }

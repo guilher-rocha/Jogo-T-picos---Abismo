@@ -3,7 +3,7 @@ import type { Game, GameRngs } from '../core/game';
 import type { HighScore } from '../core/score';
 
 /** Versão do formato do save; saves de outra versão são descartados com aviso. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 const KEY_SAVE = 'abismo.save';
 const KEY_SCORES = 'abismo.highscores';

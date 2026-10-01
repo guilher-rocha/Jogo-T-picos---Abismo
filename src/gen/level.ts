@@ -5,6 +5,7 @@ import { themeForDepth } from '../data/themes';
 import { spawnMonsters } from './populate';
 import { spawnItems } from './items';
 import { placeBoss } from './boss';
+import { placeFeatures } from './features';
 
 /** RNG próprio de cada andar: o mesmo andar sai igual para a mesma seed, não importa a ordem de exploração. */
 export function levelRng(seed: number, depth: number): RNG {
@@ -28,6 +29,7 @@ export function buildLevel(game: Game, depth: number): Level {
     visited: false,
   };
   spawnMonsters(game, level, rng, depth);
+  placeFeatures(level, rng, depth);
   spawnItems(game, level, rng, depth);
   placeBoss(game, level, rng, depth);
   return level;

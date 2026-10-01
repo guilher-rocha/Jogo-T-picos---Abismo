@@ -30,7 +30,8 @@ export type CommandName =
   | 'search'
   | 'rest'
   | 'save'
-  | 'discoveries';
+  | 'discoveries'
+  | 'disarm';
 
 export interface Command {
   name: CommandName;
@@ -98,6 +99,7 @@ const SIMPLE_KEYS: Record<string, CommandName> = {
   R: 'rest',
   S: 'save',
   I: 'discoveries',
+  D: 'disarm',
   m: 'cast',
   Z: 'cast',
   A: 'abilities',
@@ -120,7 +122,8 @@ export const KEY_HELP: [string, string][] = [
   ['d', 'largar item'],
   ['w / W', 'empunhar arma / vestir armadura'],
   ['T / P', 'tirar / colocar anel ou amuleto'],
-  ['q / E', 'beber poção / comer'],
+  ['q / E', 'beber poção (ou da fonte) / comer'],
+  ['D', 'desarmar armadilha'],
   ['r / z', 'ler pergaminho / usar varinha'],
   ['t', 'arremessar item'],
   ['f / Q', 'disparar arma de disparo / escolher munição'],

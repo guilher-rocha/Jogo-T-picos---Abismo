@@ -8,6 +8,7 @@ import type { Item } from './item';
 import type { Hero } from './hero';
 import type { IdState } from './identify';
 import type { SpellDef } from '../data/spells';
+import type { Trap } from './traps';
 import type { LogMessage } from './log';
 import { pushMessage } from './log';
 import { updatePlayerFov } from './fov';
@@ -30,6 +31,7 @@ export interface Level {
   generator: string;
   /** O jogador já esteve aqui. */
   visited: boolean;
+  traps?: Trap[];
 }
 
 /** Fluxos independentes de números aleatórios. */
@@ -65,6 +67,10 @@ export interface Game {
   artifactsFound: string[];
   /** O jogador pegou o Coração do Abismo. */
   hasAmulet: boolean;
+  /** O jogador caiu por um alçapão (resolvido ao fim da ação). */
+  pendingFall?: boolean;
+  /** Casa de lava que o jogador já foi avisado (próximo passo atravessa). */
+  lavaWarned?: string;
   /** Data do desafio diário (seed do dia), se for o caso. */
   daily?: string;
   /** Preenchido quando a partida termina. */
@@ -88,6 +94,11 @@ export function message(game: Game, text: string, color: Color = 'lightGray'): v
 export function refreshFov(game: Game): void {
   const blind = (game.player.effects ?? []).some((e) => e.id === 'blind' && e.turns > 0);
   updatePlayerFov(level(game).map, game.player.x, game.player.y, blind ? 0 : game.player.light, blind);
+}
+
+/** Ajusta a causa da morte (ex.: "morreu de fome") se o jogador acabou de morrer. */
+export function setDeathCause(game: Game, cause: string): void {
+  if (game.over && !game.over.won) game.over.cause = cause;
 }
 
 export function emit(game: Game, e: GameEvent): void {

@@ -7,6 +7,7 @@ import type { EquipSlot, ItemBase } from '../data/items';
 import { CATEGORY_SLOT, itemBase } from '../data/items';
 import { raceById } from '../data/races';
 import { capitalize } from './text';
+import { Tile } from '../data/tiles';
 
 export const MAX_INVENTORY = 26 + 26;
 const LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -216,6 +217,10 @@ export function dropItem(game: Game, item: Item, qty = item.quantity): boolean {
   out.letter = undefined;
   addItem(level(game), out);
   message(game, `Você larga ${itemName(game, out)}.`, 'lightGray');
+  const map = level(game).map;
+  if (map.tiles[game.player.y * map.width + game.player.x] === Tile.Altar && itemBase(out.baseId).category !== 'gold') {
+    message(game, out.cursed ? 'Um brilho negro envolve o item: está amaldiçoado!' : 'Um brilho âmbar envolve o item: não está amaldiçoado.', out.cursed ? 'lightRed' : 'yellow');
+  }
   return true;
 }
 

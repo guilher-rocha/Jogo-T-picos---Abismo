@@ -7,6 +7,7 @@ import { aName, capitalize, healthDesc } from '../core/text';
 import { itemsAt } from '../core/item';
 import { itemName } from '../core/itemText';
 import { STATUS } from '../core/status';
+import { TRAP_INFO } from '../core/traps';
 
 const AI_STATE: Record<string, string> = {
   sleeping: 'dormindo',
@@ -29,6 +30,8 @@ export function describeCell(game: Game, x: number, y: number): string {
     const st = (a.effects ?? []).map((e) => STATUS[e.id].name.toLowerCase());
     parts.push(`${capitalize(aName(a))} (${[healthDesc(a), AI_STATE[a.ai.state], ...st].join(', ')}). ${t.desc}`);
   }
+  const trap = (lvl.traps ?? []).find((t) => t.x === x && t.y === y && !t.hidden);
+  if (trap) parts.push(`Uma ${TRAP_INFO[trap.kind].name.replace(/^(armadilha|runa) /, '$1 ')}!`.replace('Uma fosso', 'Um fosso').replace('Uma alçapão', 'Um alçapão'));
   const items = itemsAt(lvl, x, y);
   if (items.length) parts.push(`Itens: ${items.map((i) => itemName(game, i)).join(', ')}.`);
   if (!a) parts.push(`${capitalize(tileDef(map.tiles[idx(map, x, y)]).name)}${visible ? '' : ' (lembrança)'}.`);

@@ -73,6 +73,7 @@ export function collectBonuses(game: Game): Bonuses {
       if (bo.flag) b.flags.add(bo.flag);
     }
   }
+  if (game.hero.nutrition < 150) b.stats.str -= 2;
   const light = equipped(game, 'light');
   if (light && (light.fuel === undefined || light.fuel > 0)) b.light += itemBase(light.baseId).light ?? 0;
   return b;

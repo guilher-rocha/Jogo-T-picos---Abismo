@@ -1,7 +1,7 @@
 import type { Actor } from './actor';
 import { ACTION_COST, hasFlag } from './actor';
 import type { Game } from './game';
-import { actorAt, level, message } from './game';
+import { actorAt, level, message, setDeathCause } from './game';
 import { DIRS8, getTile, isWalkable, setTile } from './map';
 import { Tile } from '../data/tiles';
 import { meleeAttack } from './combat';
@@ -20,6 +20,12 @@ import { recalcPlayer } from './hero';
 import { hasStatus } from './status';
 import type { MonsterSpecial } from './monsterSpecial';
 import { monsterSpecial } from './monsterSpecial';
+import { disarm, searchTraps, trapAt, triggerTrap } from './traps';
+import { damage, resistMult } from './combat';
+import { addStatus, removeStatus } from './status';
+import { gainXp } from './hero';
+import { createMonster } from './monster';
+import { monsterTemplate } from '../data/monsters';
 
 export { THROW_RANGE, projectileGlyph } from './ranged';
 
@@ -44,7 +50,9 @@ export type Action =
   | { type: 'zap'; itemId: number; tx: number; ty: number }
   | { type: 'invoke' }
   | { type: 'search' }
-  | { type: 'special'; kind: MonsterSpecial };
+  | { type: 'special'; kind: MonsterSpecial }
+  | { type: 'fountain' }
+  | { type: 'disarm'; dx: number; dy: number };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -75,6 +83,10 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       return actor.isPlayer ? doSearch(game) : 0;
     case 'special':
       return actor.isPlayer ? 0 : monsterSpecial(game, actor, action.kind);
+    case 'fountain':
+      return actor.isPlayer ? drinkFountain(game) : 0;
+    case 'disarm':
+      return actor.isPlayer ? disarm(game, action.dx, action.dy) : 0;
     case 'invoke':
       if (!actor.isPlayer || !game.hasAmulet) {
         message(game, 'Você não tem nada para invocar.', 'darkGray');
@@ -178,6 +190,56 @@ function doStairs(game: Game, actor: Actor, dir: 'up' | 'down'): number {
   return ACTION_COST;
 }
 
+/** Efeitos de pisar em água, lava, fonte e altar. */
+function enterTile(game: Game, t: number): void {
+  const p = game.player;
+  if (t === Tile.Water) {
+    if (hasStatus(p, 'burning')) removeStatus(game, p, 'burning');
+    message(game, 'Você atravessa a água gelada.', 'lightBlue');
+  } else if (t === Tile.Lava) {
+    message(game, 'A lava queima seus pés!', 'orange');
+    damage(game, p, Math.round(game.rng.loot.roll('4d6') * resistMult(p, 'fire')));
+    if (!game.over) addStatus(game, p, 'burning', 3, 2);
+    setDeathCause(game, 'derretido na lava');
+  } else if (t === Tile.Fountain) message(game, 'Há uma fonte aqui (q para beber).', 'lightCyan');
+  else if (t === Tile.Altar) message(game, 'Há um altar aqui. Largue itens sobre ele para sentir sua aura.', 'white');
+}
+
+/** Bebe da fonte: efeito aleatório; às vezes ela seca. */
+function drinkFountain(game: Game): number {
+  const p = game.player;
+  const map = level(game).map;
+  if (getTile(map, p.x, p.y) !== Tile.Fountain) return 0;
+  const roll = game.rng.loot.int(1, 100);
+  if (roll <= 30) {
+    p.hp = Math.min(p.maxHp, p.hp + game.rng.loot.roll('2d8'));
+    message(game, 'A água é refrescante. Você se sente melhor.', 'lightGreen');
+  } else if (roll <= 45) {
+    p.mp = Math.min(p.maxMp, p.mp + game.rng.loot.roll('2d6'));
+    message(game, 'A água formiga na sua língua.', 'lightBlue');
+  } else if (roll <= 60) {
+    addStatus(game, p, 'poisoned', 6, 1);
+  } else if (roll <= 68) {
+    gainXp(game, 10 * game.depth);
+    message(game, 'Você sente uma sabedoria antiga fluir em você.', 'gold');
+  } else if (roll <= 75) {
+    addStatus(game, p, 'confused', 5);
+  } else if (roll <= 80) {
+    message(game, 'Uma serpente d\'água salta da fonte!', 'lightRed');
+    const free = DIRS8.find((d) => isWalkable(map, p.x + d.x, p.y + d.y) && !actorAt(game, p.x + d.x, p.y + d.y));
+    if (free) {
+      const s = createMonster(game, monsterTemplate('serpent'), p.x + free.x, p.y + free.y, game.rng.loot);
+      s.ai.state = 'hunting';
+      level(game).actors.push(s);
+    }
+  } else message(game, 'A água tem um gosto metálico.', 'lightGray');
+  if (game.rng.loot.chance(30)) {
+    setTile(map, p.x, p.y, Tile.DryFountain);
+    message(game, 'A fonte seca.', 'darkGray');
+  }
+  return ACTION_COST;
+}
+
 /** Procura portas secretas nas casas vizinhas. */
 function doSearch(game: Game): number {
   const map = level(game).map;
@@ -191,6 +253,7 @@ function doSearch(game: Game): number {
       message(game, 'Você encontra uma porta secreta!', 'yellow');
     }
   }
+  searchTraps(game, chance + (game.hero.classId === 'rogue' ? 30 : 0));
   return ACTION_COST;
 }
 
@@ -232,6 +295,15 @@ function doMove(game: Game, actor: Actor, dx: number, dy: number): number {
     return 0;
   }
   if (!isWalkable(map, nx, ny)) return 0;
+  if (t === Tile.Lava && actor.isPlayer && (actor.resist?.fire ?? 0) < 100) {
+    const key = `${game.depth},${nx},${ny}`;
+    if (game.lavaWarned !== key && !hasStatus(actor, 'confused')) {
+      game.lavaWarned = key;
+      message(game, 'Isso é lava! Mova de novo nessa direção para atravessar mesmo assim.', 'orange');
+      return 0;
+    }
+  }
+  if (t === Tile.Lava && !actor.isPlayer && (actor.resist?.fire ?? 0) < 100) return 0;
   if (actor.isPlayer && burden(game) === 2) {
     message(game, 'Você está carregando peso demais para andar!', 'orange');
     return 0;
@@ -242,6 +314,9 @@ function doMove(game: Game, actor: Actor, dx: number, dy: number): number {
     // Ouro é pego automaticamente.
     for (const it of itemsAt(level(game), nx, ny)) if (itemBase(it.baseId).category === 'gold') pickUp(game, it);
     describeFloor(game);
+    enterTile(game, t);
+    const trap = trapAt(game, nx, ny);
+    if (trap) triggerTrap(game, trap);
   }
   return ACTION_COST;
 }

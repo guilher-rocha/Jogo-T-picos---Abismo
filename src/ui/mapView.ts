@@ -9,6 +9,7 @@ import type { Item } from '../core/item';
 import { MAP_X, MAP_Y } from './layout';
 import { themeById } from '../data/themes';
 import { playerTracking } from '../core/abilities';
+import { TRAP_INFO } from '../core/traps';
 
 /** Terrenos importantes que continuam bem visíveis na memória. */
 const REMEMBER_BRIGHT = new Set<number>([Tile.StairsDown, Tile.StairsUp, Tile.DoorClosed, Tile.DoorOpen, Tile.Fountain, Tile.Altar]);
@@ -34,6 +35,11 @@ export function drawMap(term: Terminal, game: Game): void {
       }
       else term.set(MAP_X + x, MAP_Y + y, def.glyph, REMEMBER_BRIGHT.has(t) ? 'darkGray' : 'memory');
     }
+  }
+  for (const t of lvl.traps ?? []) {
+    const i = idx(map, t.x, t.y);
+    if (t.hidden || !map.explored[i]) continue;
+    term.set(MAP_X + t.x, MAP_Y + t.y, '^', map.visible[i] ? TRAP_INFO[t.kind].color : 'darkGray');
   }
   // Itens: os vistos agora aparecem coloridos; os lembrados ficam apagados.
   for (const item of lvl.items) {

@@ -122,8 +122,17 @@ export class GameScreen implements Screen, ItemHost {
       case 'quiver':
         pickFromInventory(this, 'Pôr o que na aljava?', ['ammo', 'weapon'], (i) => this.act({ type: 'equip', itemId: i.id }), (i) => itemBase(i.baseId).category === 'ammo' && !isEquipped(this.game, i));
         break;
-      case 'quaff':
+      case 'quaff': {
+        const map = level(this.game).map;
+        if (map.tiles[this.game.player.y * map.width + this.game.player.x] === Tile.Fountain) {
+          this.act({ type: 'fountain' });
+          break;
+        }
         pickFromInventory(this, 'Beber o quê?', ['potion'], (i) => this.act({ type: 'quaff', itemId: i.id }));
+        break;
+      }
+      case 'disarm':
+        this.app.screens.push(new DirectionPrompt(this.app, 'Desarmar em que direção?', (dx, dy) => this.act({ type: 'disarm', dx, dy }), directionForKey));
         break;
       case 'eat':
         pickFromInventory(this, 'Comer o quê?', ['food', 'corpse'], (i) => this.act({ type: 'eat', itemId: i.id }));
@@ -308,6 +317,7 @@ export class GameScreen implements Screen, ItemHost {
       const map = level(this.game).map;
       map.explored.fill(1);
       map.visible.fill(1);
+      for (const t of level(this.game).traps ?? []) t.hidden = false;
       message(this.game, '[debug] mapa revelado', 'lightMagenta');
       return true;
     }

@@ -6,6 +6,12 @@ import { level, refreshFov } from './game';
 import { decideAction } from '../ai/behaviors';
 import { effectiveSpeed, hasStatus, isIncapacitated, tickStatuses } from './status';
 import { damage } from './combat';
+import { addStatus } from './status';
+import { enterLevel } from './world';
+import { teleportActor } from './spells';
+import { message, setDeathCause } from './game';
+import { recalcPlayer } from './hero';
+import { equipped } from './inventory';
 
 /**
  * Loop de turnos baseado em energia:
@@ -18,7 +24,9 @@ export function playerAction(game: Game, action: Action): boolean {
   const cost = perform(game, game.player, action);
   if (cost <= 0) return false;
   game.player.energy -= cost;
+  resolveFall(game);
   runUntilPlayerTurn(game);
+  resolveFall(game);
   refreshFov(game);
   return true;
 }
@@ -51,6 +59,47 @@ export function runUntilPlayerTurn(game: Game): void {
   }
 }
 
+/** Queda por alçapão: vai para o andar de baixo, num ponto aleatório. */
+function resolveFall(game: Game): void {
+  if (!game.pendingFall || game.over) return;
+  game.pendingFall = false;
+  enterLevel(game, game.depth + 1, 'up');
+  teleportActor(game, game.player);
+  damage(game, game.player, game.rng.loot.roll('1d6'));
+  setDeathCause(game, 'morto na queda de um alçapão');
+}
+
+/** Fome e combustível da luz, uma vez por turno. */
+function hungerAndFuel(game: Game): void {
+  const hero = game.hero;
+  const p = game.player;
+  const before = hero.nutrition;
+  hero.nutrition -= p.flags.includes('regen') ? 2 : 1;
+  const crossed = (limit: number) => before >= limit && hero.nutrition < limit;
+  if (crossed(600)) message(game, 'Você está com fome.', 'yellow');
+  if (crossed(150)) {
+    message(game, 'Você está fraco de fome!', 'lightRed');
+    recalcPlayer(game);
+  }
+  if (hero.nutrition <= 0 && game.rng.loot.chance(10) && !hasStatus(p, 'asleep')) {
+    message(game, 'Você desmaia de fome!', 'red');
+    addStatus(game, p, 'asleep', game.rng.loot.int(2, 4));
+  }
+  if (hero.nutrition <= -400) {
+    damage(game, p, p.hp);
+    setDeathCause(game, 'morreu de fome');
+  }
+  const light = equipped(game, 'light');
+  if (light?.fuel !== undefined && light.fuel > 0) {
+    light.fuel--;
+    if (light.fuel === 200) message(game, 'Sua luz está ficando fraca.', 'yellow');
+    if (light.fuel === 0) {
+      message(game, 'Sua luz se apaga! Você está no escuro.', 'lightRed');
+      recalcPlayer(game);
+    }
+  }
+}
+
 /** Intervalo (em turnos) para regenerar 1 HP. */
 const REGEN_INTERVAL = 10;
 
@@ -64,9 +113,11 @@ function tick(game: Game): void {
     const { damage: dmg, cause } = tickStatuses(game, a);
     if (dmg > 0) {
       damage(game, a, dmg);
-      if (game.over && a.isPlayer && cause) game.over.cause = cause;
+      if (a.isPlayer && cause) setDeathCause(game, cause);
     }
   }
+  if (game.over) return;
+  hungerAndFuel(game);
   if (game.over) return;
   const p = game.player;
   if (game.turn % REGEN_INTERVAL === 0) {

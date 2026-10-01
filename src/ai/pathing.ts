@@ -7,6 +7,7 @@ export const UNREACHABLE = 1e9;
 /** Pode ser atravessado por um monstro (portas fechadas contam: podem ser abertas). */
 function pathable(map: GameMap, x: number, y: number): boolean {
   const t = map.tiles[idx(map, x, y)];
+  if (t === Tile.Lava) return false;
   return tileDef(t).walkable || t === Tile.DoorClosed;
 }
 
