@@ -32,6 +32,8 @@ export interface Level {
   /** O jogador já esteve aqui. */
   visited: boolean;
   traps?: Trap[];
+  /** Nome da sala especial do andar, se houver. */
+  vault?: string;
 }
 
 /** Fluxos independentes de números aleatórios. */

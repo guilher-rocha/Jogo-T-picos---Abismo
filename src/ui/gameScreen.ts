@@ -234,7 +234,12 @@ export class GameScreen implements Screen, ItemHost {
     });
     this.app.screens.push(new MenuScreen(this.app, 'Habilidades', entries, (i) => {
       const a = list[i];
-      if (ABILITY_RULES[a.id].needsDirection) {
+      if (ABILITY_RULES[a.id].needsTarget) {
+        this.app.screens.push(new TargetScreen(this.app, g, {
+          mode: 'aim', prompt: `${a.name}: escolha o alvo.`, range: 10,
+          onConfirm: (p) => this.act({ type: 'ability', abilityId: a.id, dx: p.x, dy: p.y }),
+        }));
+      } else if (ABILITY_RULES[a.id].needsDirection) {
         this.app.screens.push(new DirectionPrompt(this.app, `${a.name}: em que direção?`, (dx, dy) => this.act({ type: 'ability', abilityId: a.id, dx, dy }), directionForKey));
       } else this.act({ type: 'ability', abilityId: a.id });
     }, { width: 92 }));

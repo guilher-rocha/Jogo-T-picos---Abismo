@@ -7,6 +7,7 @@ import { damage, meleeAttack } from './combat';
 import { classById } from '../data/classes';
 import type { ClassAbility } from '../data/classes';
 import { capitalize, theName } from './text';
+import { fire, readyAmmo } from './ranged';
 
 /** Dados de uso das habilidades ativas. */
 interface AbilityRule {
@@ -15,6 +16,8 @@ interface AbilityRule {
   mp?: number;
   /** Precisa de uma direção (ataques). */
   needsDirection?: boolean;
+  /** Precisa de um alvo à distância (dx/dy viram as coordenadas do alvo). */
+  needsTarget?: boolean;
 }
 
 export const ABILITY_RULES: Record<string, AbilityRule> = {
@@ -24,6 +27,7 @@ export const ABILITY_RULES: Record<string, AbilityRule> = {
   vanish: { cooldown: 60 },
   turn_undead: { cooldown: 15, mp: 2 },
   track: { cooldown: 80 },
+  double_shot: { cooldown: 5, needsTarget: true },
 };
 
 /** Habilidades ativas que o jogador já tem. */
@@ -113,6 +117,17 @@ function run(game: Game, p: Actor, id: string, dx: number, dy: number): number {
           m.ai.fleeUntil = game.turn + 10 + p.level;
         }
       }
+      return ACTION_COST;
+    }
+    case 'double_shot': {
+      const target = { x: dx, y: dy };
+      if (readyAmmo(game).problem) {
+        message(game, readyAmmo(game).problem!, 'darkGray');
+        return 0;
+      }
+      message(game, 'Você dispara duas flechas de uma vez!', 'yellow');
+      fire(game, p, target);
+      if (!readyAmmo(game).problem) fire(game, p, target);
       return ACTION_COST;
     }
     case 'track': {

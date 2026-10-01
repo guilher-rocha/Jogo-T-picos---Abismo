@@ -6,6 +6,7 @@ import { spawnMonsters } from './populate';
 import { spawnItems } from './items';
 import { placeBoss } from './boss';
 import { placeFeatures } from './features';
+import { placeVault } from './vaults';
 
 /** RNG próprio de cada andar: o mesmo andar sai igual para a mesma seed, não importa a ordem de exploração. */
 export function levelRng(seed: number, depth: number): RNG {
@@ -30,6 +31,7 @@ export function buildLevel(game: Game, depth: number): Level {
   };
   spawnMonsters(game, level, rng, depth);
   placeFeatures(level, rng, depth);
+  if (depth >= 2 && rng.chance(30)) level.vault = placeVault(game, level, rng, depth) ?? undefined;
   spawnItems(game, level, rng, depth);
   placeBoss(game, level, rng, depth);
   return level;

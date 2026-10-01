@@ -5,6 +5,6 @@ const { createGame, enterLevel } = await server.ssrLoadModule('/src/core/world.t
 const seed = Number(process.argv[2] ?? 42);
 const g = createGame(seed);
 const out = [];
-for (let d = 1; d <= 20; d++) { enterLevel(g, d, 'up'); out.push(`${d}:${g.levels[d].generator}`); }
+for (let d = 1; d <= 20; d++) { enterLevel(g, d, 'up'); out.push(`${d}:${g.levels[d].generator}${g.levels[d].vault ? '+' + g.levels[d].vault : ''}`); }
 console.log(out.join(' '));
 await server.close();
