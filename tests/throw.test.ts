@@ -19,7 +19,7 @@ describe('arremesso', () => {
     const proj = g.events.find((e) => e.type === 'projectile');
     expect(proj && proj.type === 'projectile' && proj.path[proj.path.length - 1]).toEqual({ x: 9, y: 4 });
     // Ser alvejado acorda o monstro.
-    expect(m.ai.state === 'hunting' || m.hp <= 0).toBe(true);
+    expect((m.ai.state as string) === 'hunting' || m.hp <= 0).toBe(true);
   });
 
   it('não atravessa paredes', () => {

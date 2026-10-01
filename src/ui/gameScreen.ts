@@ -17,7 +17,7 @@ import { THROW_RANGE } from '../core/actions';
 import type { Action } from '../core/actions';
 import { createMonster } from '../core/monster';
 import { MONSTERS } from '../data/monsters';
-import { createGame } from '../core/world';
+import { createGame, enterLevel } from '../core/world';
 import { playerAction } from '../core/turn';
 import { FOOT_Y, SIDE_X } from './layout';
 import { drawMap } from './mapView';
@@ -68,6 +68,12 @@ export class GameScreen implements Screen {
           onConfirm: (p) => this.act({ type: 'throw', tx: p.x, ty: p.y }),
         }));
         break;
+      case 'descend':
+        this.act({ type: 'descend' });
+        break;
+      case 'ascend':
+        this.act({ type: 'ascend' });
+        break;
       case 'look':
         this.app.screens.push(new TargetScreen(this.app, this.game, { mode: 'look', prompt: 'Olhar:' }));
         break;
@@ -114,6 +120,11 @@ export class GameScreen implements Screen {
     if (k.key === 'F2') {
       this.game = createGame((this.game.seed * 31 + 7) >>> 0);
       message(this.game, `[debug] novo mapa, seed ${this.game.seed}`, 'lightMagenta');
+      return true;
+    }
+    if (k.key === 'F6') {
+      enterLevel(this.game, Math.min(20, this.game.depth + 1), 'up');
+      message(this.game, `[debug] andar ${this.game.depth}`, 'lightMagenta');
       return true;
     }
     if (k.key === 'F3') {

@@ -22,6 +22,11 @@ export interface Level {
   up: Point;
   down: Point;
   rooms: Room[];
+  /** Id do tema visual (data/themes.ts). */
+  theme: string;
+  generator: string;
+  /** O jogador já esteve aqui. */
+  visited: boolean;
 }
 
 /** Fluxos independentes de números aleatórios. */
@@ -37,6 +42,8 @@ export interface Game {
   seed: number;
   turn: number;
   depth: number;
+  /** Andar mais profundo já alcançado. */
+  maxDepth: number;
   levels: Record<number, Level>;
   player: Actor;
   log: LogMessage[];

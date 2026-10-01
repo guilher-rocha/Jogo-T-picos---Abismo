@@ -8,11 +8,23 @@ export const NORMAL_SPEED = 100;
 
 export type Gender = 'm' | 'f';
 
+export type Element = 'physical' | 'fire' | 'cold' | 'lightning' | 'acid' | 'poison' | 'holy' | 'shadow' | 'arcane';
+
+/** Efeito extra de um ataque (veneno, dreno, roubo...). */
+export interface AttackEffect {
+  status: string;
+  /** Chance (%) de aplicar. */
+  chance: number;
+  duration?: string;
+}
+
 /** Um ataque natural ou de arma. */
 export interface Attack {
   /** Verbo na 3ª pessoa: "morde", "arranha", "acerta". */
   verb: string;
   damage: string;
+  element?: Element;
+  effect?: AttackEffect;
 }
 
 export type AiState = 'sleeping' | 'wandering' | 'hunting' | 'fleeing';

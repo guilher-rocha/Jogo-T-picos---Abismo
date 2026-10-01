@@ -7,6 +7,7 @@ import { level } from '../core/game';
 import { idx } from '../core/map';
 import type { Item } from '../core/item';
 import { MAP_X, MAP_Y } from './layout';
+import { themeById } from '../data/themes';
 
 /** Terrenos importantes que continuam bem visíveis na memória. */
 const REMEMBER_BRIGHT = new Set<number>([Tile.StairsDown, Tile.StairsUp, Tile.DoorClosed, Tile.DoorOpen, Tile.Fountain, Tile.Altar]);
@@ -23,13 +24,17 @@ export function itemGlyph(item: Item): { glyph: string; color: Color } {
 export function drawMap(term: Terminal, game: Game): void {
   const lvl = level(game);
   const { map } = lvl;
+  const theme = themeById(lvl.theme);
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
       const i = idx(map, x, y);
       if (!map.explored[i]) continue;
       const t = map.tiles[i];
       const def = tileDef(t);
-      if (map.visible[i]) term.set(MAP_X + x, MAP_Y + y, def.glyph, def.fg, def.bg);
+      if (map.visible[i]) {
+        const fg = t === Tile.Wall || t === Tile.SecretDoor ? theme.wall : t === Tile.Floor ? theme.floor : def.fg;
+        term.set(MAP_X + x, MAP_Y + y, def.glyph, fg, def.bg);
+      }
       else term.set(MAP_X + x, MAP_Y + y, def.glyph, REMEMBER_BRIGHT.has(t) ? 'darkGray' : 'memory');
     }
   }

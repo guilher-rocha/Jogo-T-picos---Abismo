@@ -6,7 +6,9 @@ export type CommandName =
   | 'messages'
   | 'help'
   | 'throw'
-  | 'look';
+  | 'look'
+  | 'descend'
+  | 'ascend';
 
 export interface Command {
   name: CommandName;
@@ -53,6 +55,8 @@ const SIMPLE_KEYS: Record<string, CommandName> = {
   t: 'throw',
   x: 'look',
   ';': 'look',
+  '>': 'descend',
+  '<': 'ascend',
 };
 
 /** Tabela de ajuda (mostrada com "?"). */
@@ -62,6 +66,7 @@ export const KEY_HELP: [string, string][] = [
   ['numpad 1-9', 'mover / atacar'],
   ['Shift + direção', 'correr'],
   ['. ou numpad 5', 'esperar um turno'],
+  ['> / <', 'descer / subir escada'],
   ['t', 'arremessar (dardo)'],
   ['x ou ;', 'olhar (inspecionar o mapa)'],
   ['M ou Ctrl+P', 'histórico de mensagens'],

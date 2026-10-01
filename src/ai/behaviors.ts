@@ -90,10 +90,14 @@ function wander(game: Game, m: Actor): Action {
   const rng = game.rng.ai;
   const lvl = level(game);
   if (!m.ai.wanderTarget || (m.x === m.ai.wanderTarget.x && m.y === m.ai.wanderTarget.y) || rng.chance(3)) {
-    const rooms = lvl.rooms.filter((r) => !r.gone);
-    if (rooms.length === 0) return randomStep(game, m);
-    const r = rng.pick(rooms);
-    m.ai.wanderTarget = { x: rng.int(r.x, r.x + r.w - 1), y: rng.int(r.y, r.y + r.h - 1) };
+    // Destino: um ponto de chão aleatório do andar.
+    m.ai.wanderTarget = undefined;
+    for (let tries = 0; tries < 30 && !m.ai.wanderTarget; tries++) {
+      const x = rng.int(1, lvl.map.width - 2);
+      const y = rng.int(1, lvl.map.height - 2);
+      if (isWalkable(lvl.map, x, y)) m.ai.wanderTarget = { x, y };
+    }
+    if (!m.ai.wanderTarget) return randomStep(game, m);
   }
   if (rng.chance(30)) return { type: 'wait' };
   const dist = distanceMapTo(lvl.map, m.ai.wanderTarget, game.turn);

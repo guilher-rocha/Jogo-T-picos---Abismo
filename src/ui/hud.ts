@@ -5,7 +5,8 @@ import { level } from '../core/game';
 import { distance, idx } from '../core/map';
 import { formatMessage } from '../core/log';
 import { healthDesc } from '../core/text';
-import { MAP_Y, MSG_LINES, SIDE_W, SIDE_X } from './layout';
+import { FOOT_Y, MAP_Y, MSG_LINES, SIDE_W, SIDE_X } from './layout';
+import { themeById } from '../data/themes';
 
 /** Barra de progresso "████░░░░". */
 export function bar(term: Terminal, x: number, y: number, width: number, value: number, max: number, color: Color): void {
@@ -41,7 +42,9 @@ export function drawSidebar(term: Terminal, game: Game): void {
   y++;
   bar(term, x, y++, SIDE_W - 1, p.hp, p.maxHp, hpColor(p.hp, p.maxHp));
   y++;
+  const theme = themeById(level(game).theme);
   term.print(x, y++, `Andar {white}${game.depth}{/}`, 'lightGray');
+  term.print(x, y++, theme.name, theme.wall, 'black', SIDE_W);
   term.print(x, y++, `Turno {white}${game.turn}{/}`, 'lightGray');
   y++;
 
@@ -51,11 +54,14 @@ export function drawSidebar(term: Terminal, game: Game): void {
     .sort((a, b) => distance(a, p) - distance(b, p));
   if (visible.length) {
     term.print(x, y++, '── À vista ──', 'darkGray');
-    for (const a of visible.slice(0, 8)) {
+    const room = Math.floor((FOOT_Y - 2 - y) / 2);
+    const shown = visible.length > room ? visible.slice(0, room - 1) : visible;
+    for (const a of shown) {
       term.set(x, y, a.glyph, a.color);
       const state = a.ai.state === 'sleeping' ? 'dormindo' : healthDesc(a);
       term.print(x + 2, y++, `${a.name}`, 'lightGray', 'black', SIDE_W - 2);
       term.print(x + 2, y++, state, a.ai.state === 'sleeping' ? 'lightBlue' : hpColor(a.hp, a.maxHp), 'black', SIDE_W - 2);
     }
+    if (shown.length < visible.length) term.print(x, y++, `  ...e mais ${visible.length - shown.length}`, 'darkGray');
   }
 }

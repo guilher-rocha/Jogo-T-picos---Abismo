@@ -7,6 +7,8 @@ import { getTile, isTransparent, isWalkable, setTile } from './map';
 import { bresenham } from './fov';
 import { Tile } from '../data/tiles';
 import { meleeAttack, rangedAttack } from './combat';
+import { enterLevel } from './world';
+import { MAX_DEPTH } from '../data/themes';
 import { capitalize, theName } from './text';
 
 /** Ações possíveis. Jogador e monstros usam exatamente as mesmas. */
@@ -14,7 +16,9 @@ export type Action =
   | { type: 'move'; dx: number; dy: number }
   | { type: 'attack'; dx: number; dy: number }
   | { type: 'throw'; tx: number; ty: number }
-  | { type: 'wait' };
+  | { type: 'wait' }
+  | { type: 'descend' }
+  | { type: 'ascend' };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -33,7 +37,35 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       return doThrow(game, actor, action.tx, action.ty);
     case 'wait':
       return ACTION_COST;
+    case 'descend':
+      return doStairs(game, actor, 'down');
+    case 'ascend':
+      return doStairs(game, actor, 'up');
   }
+}
+
+function doStairs(game: Game, actor: Actor, dir: 'up' | 'down'): number {
+  if (!actor.isPlayer) return 0;
+  const t = getTile(level(game).map, actor.x, actor.y);
+  if (dir === 'down') {
+    if (t !== Tile.StairsDown) {
+      message(game, 'Não há escada para baixo aqui.', 'darkGray');
+      return 0;
+    }
+    if (game.depth >= MAX_DEPTH) return 0;
+    enterLevel(game, game.depth + 1, 'up');
+    return ACTION_COST;
+  }
+  if (t !== Tile.StairsUp) {
+    message(game, 'Não há escada para cima aqui.', 'darkGray');
+    return 0;
+  }
+  if (game.depth === 1) {
+    message(game, 'A saída está bloqueada por uma força mágica. Só o Coração do Abismo pode abri-la.', 'lightGray');
+    return 0;
+  }
+  enterLevel(game, game.depth - 1, 'down');
+  return ACTION_COST;
 }
 
 export const THROW_RANGE = 8;
