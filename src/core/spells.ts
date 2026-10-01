@@ -151,7 +151,8 @@ function applyToTarget(game: Game, caster: Actor, target: Actor, spell: SpellDef
   const hostile = !target.isPlayer && caster.isPlayer;
   switch (spell.effect) {
     case 'damage': {
-      const dmg = Math.round(spellPower(game, caster, spell) * resistMult(target, spell.element));
+      const holyBonus = spell.element === 'holy' && target.flags.includes('undead') ? 2 : 1;
+      const dmg = Math.round(spellPower(game, caster, spell) * resistMult(target, spell.element) * holyBonus);
       message(game, `${name} ${target.isPlayer ? 'é atingido' : `é ${adj('atingido', target.gender)}`} (${dmg}).`, target.isPlayer ? 'lightRed' : 'white');
       damage(game, target, dmg, caster);
       if (spell.element === 'fire' && target.hp > 0 && game.rng.combat.chance(25)) addStatus(game, target, 'burning', 3, 2);

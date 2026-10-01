@@ -9,6 +9,7 @@ import { spawnPoints } from './populate';
 import type { AffixDef } from '../data/affixes';
 import { AFFIXES, ARTIFACTS } from '../data/affixes';
 import { randomName } from './names';
+import { generateSpell } from './spells';
 
 /** Peso de cada categoria no sorteio de itens do chão. */
 const CATEGORY_WEIGHTS: { item: ItemCategory[]; weight: number }[] = [
@@ -53,6 +54,12 @@ export function rollItem(game: Game, rng: RNG, baseId: string, depth: number): I
   else if (base.id === 'dart' || base.id === 'dagger') item.quantity = base.id === 'dart' ? rng.int(4, 10) : rng.int(1, 3);
   else if (base.category === 'potion' || base.category === 'scroll') item.quantity = rng.chance(15) ? 2 : 1;
   if (base.charges) item.charges = rng.roll(base.charges);
+  // Tomos: metade contém uma magia gerada proceduralmente.
+  if (base.category === 'book' && rng.chance(50)) {
+    const spell = generateSpell(rng, depth, base.effect === 'learn_divine' ? 'divine' : 'arcane');
+    game.customSpells = [...(game.customSpells ?? []), spell];
+    item.spellId = spell.id;
+  }
   applyRarity(game, rng, item, depth);
   return item;
 }

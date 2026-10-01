@@ -3,7 +3,7 @@ import type { Game } from './game';
 import { emit, message } from './game';
 import { classById } from '../data/classes';
 import { raceById } from '../data/races';
-import { STARTING_SPELLS } from '../data/spells';
+import { CLASS_SPELL_PROGRESSION, SPELLS, STARTING_SPELLS } from '../data/spells';
 import type { Item } from './item';
 import type { EquipSlot } from '../data/items';
 import { itemBase } from '../data/items';
@@ -162,6 +162,22 @@ function levelUp(game: Game): void {
   if (hero.level % 4 === 0) message(game, 'Você pode aumentar um atributo (tecla C).', 'gold');
   for (const ab of cls.abilities.filter((a) => a.level === hero.level)) {
     message(game, `Nova habilidade: ${ab.name} — ${ab.desc}`, 'lightCyan');
+  }
+  learnLevelSpells(game);
+}
+
+/** Aprende as magias da própria escola liberadas pelo nível atual. */
+export function learnLevelSpells(game: Game): void {
+  const hero = game.hero;
+  const prog = CLASS_SPELL_PROGRESSION[hero.classId];
+  if (!prog) return;
+  for (const s of SPELLS) {
+    if (s.generated || s.school !== prog.school || s.level > hero.level || s.level > prog.maxSpellLevel) continue;
+    if (hero.spells.includes(s.id)) continue;
+    // Patrulheiros aprendem mais devagar (a cada `every` níveis).
+    if (hero.level % prog.every !== 0) continue;
+    hero.spells.push(s.id);
+    message(game, `Você aprende uma nova magia: ${s.name}!`, 'lightMagenta');
   }
 }
 

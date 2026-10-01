@@ -291,16 +291,30 @@ function readBook(game: Game, item: Item): number {
     message(game, 'As palavras não fazem sentido para você. (Sua classe não conjura magias.)', 'darkGray');
     return 0;
   }
-  const pool = [...SPELLS.filter((s) => !s.generated), ...(game.customSpells ?? [])]
-    .filter((s) => s.school === school && s.level <= game.hero.level + 2 && !game.hero.spells.includes(s.id));
   learn(game, item.baseId);
+  // Tomo com magia procedural específica.
+  const special = item.spellId ? game.customSpells?.find((s) => s.id === item.spellId) : undefined;
+  if (special) {
+    if (special.level > game.hero.level + 3) {
+      message(game, `As fórmulas são avançadas demais para você (magia de nível ${special.level}). Tente mais tarde.`, 'lightGray');
+      return 0;
+    }
+    takeFromInventory(game, item, 1);
+    if (game.hero.spells.includes(special.id)) {
+      message(game, 'Você já conhece esta magia.', 'lightGray');
+      return ACTION_COST;
+    }
+    game.hero.spells.push(special.id);
+    message(game, `Você decifra o tomo e aprende uma magia rara: ${special.name}!`, 'lightMagenta');
+    return ACTION_COST * 3;
+  }
+  const pool = SPELLS.filter((s) => !s.generated && s.school === school && s.level <= game.hero.level + 3 && !game.hero.spells.includes(s.id));
   takeFromInventory(game, item, 1);
   if (!pool.length) {
     message(game, 'Você já conhece todas as magias deste tomo que consegue entender.', 'lightGray');
     return ACTION_COST;
   }
-  // Tomos podem conter magias geradas proceduralmente (guardadas em item.spellId).
-  const chosen: SpellDef = (item.spellId && pool.find((s) => s.id === item.spellId)) || game.rng.loot.pick(pool);
+  const chosen: SpellDef = game.rng.loot.pick(pool);
   game.hero.spells.push(chosen.id);
   message(game, `Você estuda o tomo e aprende: ${chosen.name}!`, 'lightMagenta');
   return ACTION_COST * 3;

@@ -185,7 +185,10 @@ export class GameScreen implements Screen, ItemHost {
 
   private openSpells(): void {
     const g = this.game;
-    const known = g.hero.spells.map((id) => spellById(id)).filter((s): s is SpellDef => !!s);
+    const known = g.hero.spells
+      .map((id) => spellById(id) ?? g.customSpells?.find((s) => s.id === id))
+      .filter((s): s is SpellDef => !!s)
+      .sort((a, b) => a.level - b.level);
     if (!known.length) {
       message(g, 'Você não conhece nenhuma magia.', 'darkGray');
       return;
