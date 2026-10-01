@@ -16,7 +16,10 @@ import { HighScoresScreen } from './ui/highScoresScreen';
 import { AttractScreen } from './ui/attractScreen';
 import { GameOverScreen } from './ui/gameOverScreen';
 import { morgueLines } from './core/morgue';
-import { deleteSave, hasSave, loadGame, loadHighScores, saveGame, saveHighScores } from './persist/save';
+import { deleteSave, hasSave, loadGame, loadHighScores, loadSettings, saveGame, saveHighScores, saveSettings } from './persist/save';
+import { DEFAULT_SETTINGS, OptionsScreen } from './ui/optionsScreen';
+import { themeById } from './engine/themes';
+import { sound } from './engine/sound';
 import { message } from './core/game';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -67,7 +70,15 @@ const app: App = {
     screens.replace(new GameScreen(app, game));
   },
   dailyChallenge: () => {},
-  showOptions: () => {},
+  showOptions: () => screens.push(new OptionsScreen(app, () => screens.pop())),
+  settings: loadSettings(DEFAULT_SETTINGS),
+  applySettings: (save: boolean) => {
+    renderer.setTheme(themeById(app.settings.theme));
+    sound.sfxVolume = app.settings.sfx / 10;
+    sound.musicOn = app.settings.music;
+    sound.applyVolumes();
+    if (save) saveSettings(app.settings);
+  },
   showHighScores: (cycle, highlight) => screens.replace(new HighScoresScreen(app, { cycle, highlight })),
   startAttract: () => screens.replace(new AttractScreen(app, 777 + attractCount++ * 101)),
   gameOver: (game: Game, rank: number) => {
@@ -76,7 +87,7 @@ const app: App = {
   },
   exportMorgue: (game: Game) => download(`abismo-${game.hero.name}-${game.seed}.txt`, morgueLines(game).join('\n')),
   highScores: loadHighScores(),
-  features: { daily: false, options: false },
+  features: { daily: false, options: true },
   recordScore: (entry) => {
     const rank = insertHighScore(app.highScores, entry);
     saveHighScores(app.highScores);
@@ -90,6 +101,8 @@ window.addEventListener('beforeunload', () => {
   if (top instanceof GameScreen && !top.game.over) saveGame(top.game);
 });
 
+app.applySettings(false);
+
 // ?quick=1 pula título e criação (útil para testes); ?class=mage&race=elf escolhe a combinação.
 if (quick) startGame({ ...DEFAULT_HERO, classId: classParam ?? DEFAULT_HERO.classId, raceId: raceParam ?? DEFAULT_HERO.raceId });
 else app.showTitle();
@@ -101,10 +114,12 @@ window.addEventListener('keydown', (e) => {
   if (e.ctrlKey && ['r', 'R', 'F5'].includes(e.key)) return; // deixa recarregar
   if (PREVENT.has(e.key) || e.key.length === 1 || (debug && /^F\d+$/.test(e.key))) e.preventDefault();
   if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+  sound.unlock();
   const k: KeyInput = { key: e.key, code: e.code, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey };
   screens.onKey(k);
 });
 // Clique também conta como "interagir" (tela de título, demonstração).
+window.addEventListener('mousedown', () => sound.unlock());
 window.addEventListener('mousedown', () => screens.onKey({ key: 'Mouse', code: 'Mouse', shift: false, ctrl: false, alt: false }));
 
 let last = performance.now();

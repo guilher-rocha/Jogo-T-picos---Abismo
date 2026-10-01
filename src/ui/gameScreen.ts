@@ -21,7 +21,8 @@ import { CharacterScreen } from './characterScreen';
 import { gainXp, xpForLevel } from '../core/hero';
 import { raceById } from '../data/races';
 import { AnimationQueue } from '../engine/animations';
-import { playEvents } from './effects';
+import { playEvents, playSounds, shake } from './effects';
+import { sound } from '../engine/sound';
 import type { Action } from '../core/actions';
 import type { ItemHost } from './itemMenus';
 import { EquipmentScreen, InventoryScreen, discoveriesScreen, fireCommand, pickFromInventory, pickupCommand, readCommand, throwCommand } from './itemMenus';
@@ -45,7 +46,12 @@ export class GameScreen implements Screen, ItemHost {
   constructor(public app: App, public game: Game) {}
 
   update(dt: number): void {
+    this.anims.speed = this.app.settings.animSpeed;
     this.anims.update(dt);
+  }
+
+  onEnter(): void {
+    sound.setMusicTheme(level(this.game).theme);
   }
 
   private recorded = false;
@@ -57,6 +63,9 @@ export class GameScreen implements Screen, ItemHost {
   act(action: Action): boolean {
     const depth = this.game.depth;
     const ok = playerAction(this.game, action);
+    playSounds(this.game.events);
+    if (this.game.over?.won) sound.play('victory');
+    if (this.game.depth !== depth) sound.setMusicTheme(level(this.game).theme);
     // Autosave ao trocar de andar e a cada 100 turnos.
     if (ok && !this.game.over && (this.game.depth !== depth || this.game.turn - this.lastSave >= 100)) {
       saveGame(this.game);
@@ -340,9 +349,10 @@ export class GameScreen implements Screen, ItemHost {
     return false;
   }
 
-  render(term: Terminal): void {
+  render(term: Terminal, time: number): void {
     const game = this.game;
-    drawMap(term, game);
+    const shaking = performance.now() < shake.until && this.app.settings.animSpeed > 0;
+    drawMap(term, game, time, shaking ? (Math.floor(time / 40) % 2 ? 1 : -1) : 0);
     this.anims.draw(term);
     drawMessages(term, game);
     drawSidebar(term, game);

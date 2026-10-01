@@ -51,6 +51,7 @@ export function createGame(seed: number, spec: HeroSpec = DEFAULT_HERO): Game {
   game.player.hp = game.player.maxHp;
   game.player.mp = game.player.maxMp;
   enterLevel(game, 1, 'up');
+  game.events = [];
   message(game, 'Você desce para o Abismo. Encontre o caminho para baixo...', 'yellow');
   return game;
 }

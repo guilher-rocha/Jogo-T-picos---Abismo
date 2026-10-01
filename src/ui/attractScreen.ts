@@ -60,7 +60,7 @@ export class AttractScreen implements Screen {
   }
 
   render(term: Terminal, time: number): void {
-    drawMap(term, this.game);
+    drawMap(term, this.game, time);
     this.anims.draw(term);
     drawMessages(term, this.game);
     drawSidebar(term, this.game);

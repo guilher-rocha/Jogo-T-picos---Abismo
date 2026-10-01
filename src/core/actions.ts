@@ -1,7 +1,7 @@
 import type { Actor } from './actor';
 import { ACTION_COST, hasFlag } from './actor';
 import type { Game } from './game';
-import { actorAt, level, message, setDeathCause } from './game';
+import { actorAt, emit, level, message, setDeathCause } from './game';
 import { DIRS8, getTile, isWalkable, setTile } from './map';
 import { Tile } from '../data/tiles';
 import { meleeAttack } from './combat';
@@ -286,6 +286,7 @@ function doMove(game: Game, actor: Actor, dx: number, dy: number): number {
   if (t === Tile.DoorClosed) {
     if (!actor.isPlayer && !hasFlag(actor, 'opensDoors')) return 0;
     setTile(map, nx, ny, Tile.DoorOpen);
+    if (map.visible[ny * map.width + nx]) emit(game, { type: 'door' });
     if (actor.isPlayer) message(game, 'Você abre a porta.', 'lightGray');
     else if (map.visible[ny * map.width + nx]) message(game, `${capitalize(theName(actor))} abre uma porta.`, 'lightGray');
     return ACTION_COST;

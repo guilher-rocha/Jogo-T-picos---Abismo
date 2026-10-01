@@ -19,7 +19,9 @@ export type GameEvent =
   | { type: 'door' }
   | { type: 'spell'; color: Color }
   | { type: 'quaff' }
-  | { type: 'read' };
+  | { type: 'read' }
+  | { type: 'crit'; x: number; y: number }
+  | { type: 'bossDeath'; x: number; y: number };
 
 export function pushEvent(events: GameEvent[], e: GameEvent): void {
   events.push(e);

@@ -3,6 +3,40 @@ import type { Color } from '../engine/colors';
 import type { GameEvent } from '../core/events';
 import type { Point } from '../core/map';
 import { MAP_X, MAP_Y } from './layout';
+import { sound } from '../engine/sound';
+import type { SoundName } from '../engine/sound';
+
+const MAP_ROWS = 24;
+
+/** Tremor de tela (golpes críticos, morte de chefes). */
+export const shake = { until: 0 };
+
+/** Toca os sons correspondentes aos eventos (antes de virarem animações). */
+export function playSounds(events: GameEvent[]): void {
+  const played = new Set<SoundName>();
+  const play = (s: SoundName) => {
+    if (played.has(s)) return;
+    played.add(s);
+    sound.play(s);
+  };
+  for (const e of events) {
+    switch (e.type) {
+      case 'damage': play(e.toPlayer ? 'hurt' : 'hit'); break;
+      case 'miss': play('miss'); break;
+      case 'death': play(e.isPlayer ? 'death' : 'kill'); break;
+      case 'levelUp': play('levelUp'); break;
+      case 'pickup': play('pickup'); break;
+      case 'door': play('door'); break;
+      case 'stairs': play('stairs'); break;
+      case 'spell': play('spell'); break;
+      case 'quaff': play('quaff'); break;
+      case 'read': play('read'); break;
+      case 'explosion': case 'bossDeath': play('explosion'); break;
+      case 'projectile': play('shoot'); break;
+      default: break;
+    }
+  }
+}
 
 const FLASH_MS = 110;
 const PROJECTILE_STEP_MS = 28;
@@ -59,6 +93,36 @@ function sparkle(x: number, y: number, color: Color): Animation {
   };
 }
 
+/** Número de dano subindo acima do alvo. */
+function damageNumber(x: number, y: number, amount: number, toPlayer: boolean): Animation {
+  const text = `-${amount}`;
+  return {
+    duration: 450,
+    draw: (term, t) => {
+      const yy = y - 1 - Math.floor(t * 1.5);
+      if (yy < 0) return;
+      term.print(MAP_X + x - Math.floor(text.length / 2), MAP_Y + yy, text, toPlayer ? 'lightRed' : 'yellow');
+    },
+  };
+}
+
+/** Transição de andar: o mapa é "desenhado" de cima para baixo. */
+function wipe(): Animation {
+  return {
+    duration: 320,
+    draw: (term, t) => {
+      const shown = Math.floor(t * MAP_ROWS);
+      term.fill(MAP_X, MAP_Y + shown, 80, MAP_ROWS - shown, ' ', 'black', 'black');
+      if (shown < MAP_ROWS) term.fill(MAP_X, MAP_Y + shown, 80, 1, '▀', 'darkGray', 'black');
+    },
+  };
+}
+
+/** Explosão grande e dourada na morte de um chefe. */
+function bossBurst(x: number, y: number): Animation[] {
+  return [explosion(x, y, 4, 'gold'), explosion(x, y, 2, 'white')];
+}
+
 /** Converte os eventos de um turno em animações (consome a lista). */
 export function playEvents(queue: AnimationQueue, events: GameEvent[]): void {
   let flashes: Animation[] = [];
@@ -70,6 +134,20 @@ export function playEvents(queue: AnimationQueue, events: GameEvent[]): void {
     switch (e.type) {
       case 'damage':
         flashes.push(flash(e.x, e.y, e.toPlayer ? 'red' : 'darkRed'));
+        flashes.push(damageNumber(e.x, e.y, e.amount, e.toPlayer));
+        break;
+      case 'crit':
+        flashes.push(flash(e.x, e.y, 'gold', 160));
+        shake.until = performance.now() + 220;
+        break;
+      case 'stairs':
+        flushFlashes();
+        queue.push(wipe());
+        break;
+      case 'bossDeath':
+        flushFlashes();
+        for (const a of bossBurst(e.x, e.y)) queue.push(a);
+        shake.until = performance.now() + 500;
         break;
       case 'projectile':
         flushFlashes();

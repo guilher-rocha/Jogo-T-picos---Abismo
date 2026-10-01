@@ -71,6 +71,13 @@ function resolveAttack(game: Game, attacker: Actor, defender: Actor, atk: Attack
     return;
   }
   let dmg = Math.max(1, Math.round(rng.roll(atk.damage) * mult * resistMult(defender, atk.element)));
+  const critChance = attacker.isPlayer ? (game.hero.raceId === 'halfling' ? 10 : 5) : 3;
+  const crit = rng.chance(critChance);
+  if (crit) {
+    dmg *= 2;
+    emit(game, { type: 'crit', x: defender.x, y: defender.y });
+    message(game, attacker.isPlayer ? 'Golpe crítico!' : 'Um golpe crítico!', attacker.isPlayer ? 'gold' : 'red');
+  }
   // Marcas elementais da arma do jogador (afixos Flamejante, Gélida...).
   let extra = '';
   let lifeSteal = 0;
@@ -192,6 +199,7 @@ export function killMonster(game: Game, monster: Actor, killer?: Actor): void {
   // Ladrões devolvem o que roubaram ao morrer.
   for (const it of monster.loot ?? []) addItem(lvl, { ...it, x: monster.x, y: monster.y });
   if (monster.flags.includes('unique')) {
+    emit(game, { type: 'bossDeath', x: monster.x, y: monster.y });
     game.uniquesKilled.push(monster.templateId);
     message(game, `${monster.name} foi derrotado!`, 'gold');
   }

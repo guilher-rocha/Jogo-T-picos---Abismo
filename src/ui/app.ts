@@ -1,6 +1,7 @@
 import type { ScreenManager } from '../engine/screens';
 import type { HighScore } from '../core/score';
 import type { Game } from '../core/game';
+import type { Settings } from './optionsScreen';
 
 /** Contexto compartilhado entre as telas (o "controlador" do fluxo de telas). */
 export interface App {
@@ -23,6 +24,9 @@ export interface App {
   exportMorgue: (game: Game) => void;
   /** Quadro de recordes (top 10). */
   highScores: HighScore[];
+  settings: Settings;
+  /** Aplica as configurações (tema, sons); `save` grava no navegador. */
+  applySettings: (save: boolean) => void;
   /** Funcionalidades disponíveis (vão sendo ligadas conforme as etapas). */
   features: { daily: boolean; options: boolean };
   /** Registra uma pontuação; retorna a posição no quadro (-1 = não entrou). */

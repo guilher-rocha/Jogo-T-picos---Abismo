@@ -1,5 +1,5 @@
 import type { Game } from './game';
-import { level, message } from './game';
+import { emit, level, message } from './game';
 import type { Item } from './item';
 import { addItem, canStack, itemsAt, itemWeight, removeFloorItem } from './item';
 import { itemName } from './itemText';
@@ -203,6 +203,7 @@ export function pickUp(game: Game, item: Item): boolean {
     return false;
   }
   removeFloorItem(lvl, item);
+  emit(game, { type: 'pickup' });
   message(game, `${added.letter} - ${itemName(game, added)}.`, 'white');
   if (burden(game) > 0) message(game, burden(game) === 2 ? 'Você mal consegue se mexer com tanto peso!' : 'Você está sobrecarregado.', 'orange');
   return true;
