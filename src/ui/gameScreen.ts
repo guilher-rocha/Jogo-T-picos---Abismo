@@ -24,7 +24,7 @@ import { AnimationQueue } from '../engine/animations';
 import { playEvents } from './effects';
 import type { Action } from '../core/actions';
 import type { ItemHost } from './itemMenus';
-import { EquipmentScreen, InventoryScreen, fireCommand, pickFromInventory, pickupCommand, throwCommand } from './itemMenus';
+import { EquipmentScreen, InventoryScreen, discoveriesScreen, fireCommand, pickFromInventory, pickupCommand, readCommand, throwCommand } from './itemMenus';
 import { isEquipped, slotOf } from '../core/inventory';
 import { itemBase } from '../data/items';
 import { createMonster } from '../core/monster';
@@ -129,7 +129,10 @@ export class GameScreen implements Screen, ItemHost {
         pickFromInventory(this, 'Comer o quê?', ['food', 'corpse'], (i) => this.act({ type: 'eat', itemId: i.id }));
         break;
       case 'read':
-        pickFromInventory(this, 'Ler o quê?', ['scroll', 'book'], (i) => this.act({ type: 'read', itemId: i.id }));
+        pickFromInventory(this, 'Ler o quê?', ['scroll', 'book'], (i) => readCommand(this, i));
+        break;
+      case 'discoveries':
+        discoveriesScreen(this);
         break;
       case 'zap':
         pickFromInventory(this, 'Usar qual varinha?', ['wand'], (i) => this.app.screens.push(new TargetScreen(this.app, this.game, {

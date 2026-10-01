@@ -10,6 +10,7 @@ import { Tile } from '../data/tiles';
 import { capitalize, theName } from '../core/text';
 import { distanceMapTo, stepDownhill } from './pathing';
 import { playerHidden } from '../core/abilities';
+import { hasStatus } from '../core/status';
 
 /** Distância máxima em que um monstro percebe o jogador. */
 const SIGHT = 10;
@@ -19,6 +20,10 @@ const GIVE_UP = 20;
 export function canSeePlayer(game: Game, m: Actor): boolean {
   const p = game.player;
   if (playerHidden(game) && distance(m, p) > 1) return false;
+  if (hasStatus(p, 'invisible') && distance(m, p) > 1) return false;
+  if (hasStatus(m, 'blind') && distance(m, p) > 1) return false;
+  // Furtividade: monstros dormindo percebem menos o jogador furtivo.
+  if (m.ai.state === 'sleeping' && p.flags.includes('stealthy') && distance(m, p) > 2) return false;
   if (distance(m, p) > SIGHT) return false;
   return hasLineOfSight(level(game).map, m.x, m.y, p.x, p.y);
 }

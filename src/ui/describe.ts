@@ -6,6 +6,7 @@ import { monsterTemplate } from '../data/monsters';
 import { aName, capitalize, healthDesc } from '../core/text';
 import { itemsAt } from '../core/item';
 import { itemName } from '../core/itemText';
+import { STATUS } from '../core/status';
 
 const AI_STATE: Record<string, string> = {
   sleeping: 'dormindo',
@@ -25,7 +26,8 @@ export function describeCell(game: Game, x: number, y: number): string {
   if (a?.isPlayer) parts.push('Você.');
   else if (a) {
     const t = monsterTemplate(a.templateId);
-    parts.push(`${capitalize(aName(a))} (${healthDesc(a)}, ${AI_STATE[a.ai.state]}). ${t.desc}`);
+    const st = (a.effects ?? []).map((e) => STATUS[e.id].name.toLowerCase());
+    parts.push(`${capitalize(aName(a))} (${[healthDesc(a), AI_STATE[a.ai.state], ...st].join(', ')}). ${t.desc}`);
   }
   const items = itemsAt(lvl, x, y);
   if (items.length) parts.push(`Itens: ${items.map((i) => itemName(game, i)).join(', ')}.`);

@@ -13,6 +13,7 @@ import { itemBase } from '../data/items';
 import { damage, hitChance } from './combat';
 import { statMod } from './hero';
 import { capitalize, theName } from './text';
+import { potionEffect } from './consumables';
 
 export const THROW_RANGE = 8;
 
@@ -69,9 +70,10 @@ function resolveShot(game: Game, actor: Actor, target: Point, shot: Shot): void 
       hit.ai.lastSeen = { x: actor.x, y: actor.y };
     }
   }
-  // Poções se quebram; o resto cai no chão onde parou.
+  // Poções se quebram (e afetam quem foi atingido); o resto cai no chão onde parou.
   if (base.category === 'potion') {
     message(game, `${capitalize(missile)} se espatifa!`, 'lightGray');
+    if (hit && hit.hp > 0 && base.effect) potionEffect(game, hit, base.effect);
     return;
   }
   if (broke) return;

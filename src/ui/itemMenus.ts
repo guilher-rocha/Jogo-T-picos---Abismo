@@ -12,7 +12,8 @@ import type { Action } from '../core/actions';
 import { THROW_RANGE } from '../core/actions';
 import { readyAmmo } from '../core/ranged';
 import type { EquipSlot, ItemCategory } from '../data/items';
-import { CATEGORY_NAMES, CATEGORY_SLOT, SLOT_NAMES, SLOT_ORDER, itemBase } from '../data/items';
+import { CATEGORY_NAMES, CATEGORY_SLOT, ITEMS, SLOT_NAMES, SLOT_ORDER, itemBase } from '../data/items';
+import { isKnown } from '../core/identify';
 import type { App } from './app';
 import { affixById } from '../data/affixes';
 import type { MenuEntry } from './menuScreen';
@@ -47,7 +48,7 @@ function itemActions(host: ItemHost, item: Item): { label: string; run: () => vo
   else if (CATEGORY_SLOT[base.category]) list.push({ label: base.category === 'ammo' ? 'Pôr na aljava' : base.category === 'weapon' || base.category === 'launcher' ? 'Empunhar' : 'Vestir / usar', run: () => host.act({ type: 'equip', itemId: item.id }) });
   if (base.category === 'potion') list.push({ label: 'Beber', run: () => host.act({ type: 'quaff', itemId: item.id }) });
   if (base.category === 'food' || base.category === 'corpse') list.push({ label: 'Comer', run: () => host.act({ type: 'eat', itemId: item.id }) });
-  if (base.category === 'scroll' || base.category === 'book') list.push({ label: 'Ler', run: () => host.act({ type: 'read', itemId: item.id }) });
+  if (base.category === 'scroll' || base.category === 'book') list.push({ label: 'Ler', run: () => readCommand(host, item) });
   if (base.category === 'wand') list.push({ label: 'Usar (apontar)', run: () => aimWith(host, item, 'zap') });
   list.push({ label: 'Arremessar', run: () => aimWith(host, item, 'throw') });
   list.push({ label: 'Largar', run: () => host.act({ type: 'drop', itemId: item.id }) });
@@ -190,6 +191,36 @@ export function pickFromInventory(host: ItemHost, title: string, cats: ItemCateg
     return;
   }
   host.app.screens.push(new InventoryScreen(host, title, filter, onPick));
+}
+
+/** Ler: se for identificação (já conhecida), pergunta qual item identificar. */
+export function readCommand(host: ItemHost, item: Item): void {
+  const { game } = host;
+  if (item.baseId === 'scroll_identify' && isKnown(game, item.baseId)) {
+    const unknown = (i: Item) => i !== item && (!i.identified || !isKnown(game, i.baseId));
+    if (game.hero.inventory.some(unknown)) {
+      host.app.screens.push(new InventoryScreen(host, 'Identificar o quê?', unknown, (t) => host.act({ type: 'read', itemId: item.id, targetId: t.id })));
+      return;
+    }
+  }
+  host.act({ type: 'read', itemId: item.id });
+}
+
+/** Lista de tipos de item já descobertos (identificação). */
+export function discoveriesScreen(host: ItemHost): void {
+  const { game } = host;
+  const lines: string[] = [];
+  for (const cat of ['potion', 'scroll', 'wand', 'ring', 'amulet'] as const) {
+    const bases = ITEMS.filter((b) => b.category === cat);
+    lines.push(`{yellow}${CATEGORY_NAMES[cat]}{/}`);
+    for (const b of bases) {
+      const known = isKnown(game, b.id);
+      const look = game.idState.appearances[b.id];
+      lines.push(known ? `  {white}${b.name}{/} {darkGray}(${look}){/}` : `  {darkGray}${look} — ?{/}`);
+    }
+    lines.push('');
+  }
+  host.app.screens.push(new TextWindow(host.app, 'Itens descobertos', lines));
 }
 
 /** Pegar: com vários itens no chão, abre um menu. */

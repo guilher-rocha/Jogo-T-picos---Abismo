@@ -28,6 +28,8 @@ export interface Item {
   letter?: string;
   corpseOf?: string;
   corpseName?: string;
+  /** Tomos: magia específica contida (magias procedurais). */
+  spellId?: string;
 }
 
 export function createItem(game: Game, baseId: string, props: Partial<Item> = {}): Item {

@@ -2,6 +2,7 @@ import { createRngs, type Game } from '../src/core/game';
 import { createActor } from '../src/core/actor';
 import { mapFromStrings } from '../src/core/map';
 import { createHero } from '../src/core/hero';
+import { createIdState } from '../src/core/identify';
 
 export const TEST_MAP = [
   '',
@@ -40,6 +41,7 @@ export function createTestGame(seed = 1): Game {
     events: [],
     uniquesKilled: [],
     artifactsFound: [],
+    idState: createIdState(seed),
     hasAmulet: false,
     rng: createRngs(seed),
     nextId: 2,

@@ -45,6 +45,8 @@ export interface Hero {
   inventory: Item[];
   /** Nível de saciedade (fome). */
   nutrition: number;
+  /** XP perdida por dreno de nível (recuperável com poção de restauração). */
+  drainedXp: number;
   /** Slot → id do item equipado (o item continua no inventário). */
   equipment: Partial<Record<EquipSlot, number>>;
 }
@@ -74,6 +76,7 @@ export function createHero(name: string, raceId: string, classId: string, rng?: 
     spells: [...(STARTING_SPELLS[classId] ?? [])],
     inventory: [],
     nutrition: 3000,
+    drainedXp: 0,
     equipment: {},
   };
 }

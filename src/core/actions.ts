@@ -17,6 +17,7 @@ import { burden, describeFloor, dropItem, equip, pickUp, unequip } from './inven
 import { eat, quaff, readItem, zapWand } from './consumables';
 import { fire, throwItem } from './ranged';
 import { recalcPlayer } from './hero';
+import { hasStatus } from './status';
 
 export { THROW_RANGE, projectileGlyph } from './ranged';
 
@@ -37,7 +38,7 @@ export type Action =
   | { type: 'eat'; itemId: number }
   | { type: 'throw'; itemId: number; tx: number; ty: number }
   | { type: 'fire'; tx: number; ty: number }
-  | { type: 'read'; itemId: number }
+  | { type: 'read'; itemId: number; targetId?: number }
   | { type: 'zap'; itemId: number; tx: number; ty: number }
   | { type: 'invoke' }
   | { type: 'search' };
@@ -133,7 +134,7 @@ function performItemAction(game: Game, action: Action): number {
     }
     case 'read': {
       const item = findItem(game, action.itemId);
-      return item ? readItem(game, item) : 0;
+      return item ? readItem(game, item, action.targetId) : 0;
     }
     case 'zap': {
       const item = findItem(game, action.itemId);
@@ -190,6 +191,13 @@ function doSearch(game: Game): number {
 
 /** Mover: ataca se houver inimigo, abre porta se estiver fechada, senão anda. */
 function doMove(game: Game, actor: Actor, dx: number, dy: number): number {
+  // Confuso: metade das vezes vai para uma direção aleatória.
+  if (hasStatus(actor, 'confused') && game.rng.ai.chance(50)) {
+    const d = game.rng.ai.pick(DIRS8);
+    dx = d.x;
+    dy = d.y;
+    if (actor.isPlayer) message(game, 'Você cambaleia...', 'magenta');
+  }
   const nx = actor.x + dx;
   const ny = actor.y + dy;
   const map = level(game).map;
@@ -197,8 +205,12 @@ function doMove(game: Game, actor: Actor, dx: number, dy: number): number {
   if (other) {
     // Monstros não se atacam entre si.
     if (actor.isPlayer || other.isPlayer) {
+      if (hasStatus(actor, 'afraid')) {
+        if (actor.isPlayer) message(game, 'Você está apavorado demais para atacar!', 'orange');
+        return actor.isPlayer ? 0 : ACTION_COST;
+      }
       meleeAttack(game, actor, other);
-      return ACTION_COST;
+      return game.hero.classId === 'warrior' && actor.isPlayer && game.hero.level >= 15 ? 75 : ACTION_COST;
     }
     return 0;
   }

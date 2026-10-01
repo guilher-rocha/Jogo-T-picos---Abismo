@@ -5,6 +5,7 @@ import { monsterTemplate } from '../data/monsters';
 import type { Color } from '../engine/colors';
 import { CATEGORY_GLYPH } from '../data/items';
 import { affixName } from './affixText';
+import { unknownName } from './identify';
 
 const RARITY_COLOR: Record<string, Color> = { common: 'white', magic: 'lightBlue', rare: 'yellow', legendary: 'orange' };
 
@@ -13,7 +14,8 @@ export type Article = 'a' | 'the' | 'none';
 /** Nome "verdadeiro" ou aparente (consumíveis não identificados) da base. */
 function baseName(game: Game | undefined, item: Item, plural: boolean): { name: string; gender: 'm' | 'f' } {
   const base = itemBase(item.baseId);
-  void game; // a identificação de consumíveis (aparências aleatórias) entra na Etapa 4
+  const unknown = game ? unknownName(game, item.baseId, plural) : undefined;
+  if (unknown) return unknown;
   if (item.baseId === 'corpse') return { name: plural ? 'cadáveres' : `cadáver de ${item.corpseName ?? 'criatura'}`, gender: 'm' };
   const name = plural ? base.plural ?? pluralize(base.name) : base.name;
   return { name, gender: base.gender };

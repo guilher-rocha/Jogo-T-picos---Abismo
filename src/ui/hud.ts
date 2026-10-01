@@ -10,6 +10,17 @@ import { themeById } from '../data/themes';
 import { classById } from '../data/classes';
 import { raceById } from '../data/races';
 import { MAX_LEVEL, xpForLevel } from '../core/hero';
+import { STATUS } from '../core/status';
+import { visibleLength } from '../engine/terminal';
+
+/** Rótulo de fome para o HUD (vazio quando normal). */
+export function hungerLabel(n: number): string {
+  if (n <= 0) return '{red}Desmaiando{/}';
+  if (n < 150) return '{lightRed}Fraco{/}';
+  if (n < 600) return '{yellow}Faminto{/}';
+  if (n > 3500) return '{lightGreen}Saciado{/}';
+  return '';
+}
 
 /** Barra de progresso "████░░░░". */
 export function bar(term: Terminal, x: number, y: number, width: number, value: number, max: number, color: Color): void {
@@ -61,6 +72,20 @@ export function drawSidebar(term: Terminal, game: Game): void {
   term.print(x, y++, `Andar {white}${game.depth}{/}`, 'lightGray');
   term.print(x, y++, theme.name, theme.wall, 'black', SIDE_W);
   term.print(x, y++, `Turno {white}${game.turn}{/}`, 'lightGray');
+  // Status ativos e fome.
+  const tags: string[] = [];
+  for (const e of p.effects ?? []) tags.push(`{${STATUS[e.id].good ? 'lightCyan' : 'orange'}}${STATUS[e.id].name}{/}`);
+  const hunger = hungerLabel(game.hero.nutrition);
+  if (hunger) tags.push(hunger);
+  if (game.hasAmulet) tags.push('{lightMagenta}Coração!{/}');
+  let line = '';
+  for (const t of tags) {
+    if (visibleLength(line + ' ' + t) > SIDE_W && line) {
+      term.print(x, y++, line, 'lightGray');
+      line = t;
+    } else line = line ? `${line} ${t}` : t;
+  }
+  if (line) term.print(x, y++, line, 'lightGray');
 
   const lvl = level(game);
   const visible = lvl.actors
@@ -72,7 +97,7 @@ export function drawSidebar(term: Terminal, game: Game): void {
     const shown = visible.length > room ? visible.slice(0, room - 1) : visible;
     for (const a of shown) {
       term.set(x, y, a.glyph, a.color);
-      const state = a.ai.state === 'sleeping' ? 'dormindo' : healthDesc(a);
+      const state = a.ai.state === 'sleeping' ? 'dormindo' : (a.effects ?? []).length ? `${healthDesc(a)}, ${STATUS[a.effects![0].id].name.toLowerCase()}` : healthDesc(a);
       term.print(x + 2, y++, `${a.name}`, 'lightGray', 'black', SIDE_W - 2);
       term.print(x + 2, y++, state, a.ai.state === 'sleeping' ? 'lightBlue' : hpColor(a.hp, a.maxHp), 'black', SIDE_W - 2);
     }

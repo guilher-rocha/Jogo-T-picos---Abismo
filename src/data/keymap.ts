@@ -29,7 +29,8 @@ export type CommandName =
   | 'invoke'
   | 'search'
   | 'rest'
-  | 'save';
+  | 'save'
+  | 'discoveries';
 
 export interface Command {
   name: CommandName;
@@ -96,6 +97,7 @@ const SIMPLE_KEYS: Record<string, CommandName> = {
   s: 'search',
   R: 'rest',
   S: 'save',
+  I: 'discoveries',
   m: 'cast',
   Z: 'cast',
   A: 'abilities',
@@ -127,6 +129,7 @@ export const KEY_HELP: [string, string][] = [
   ['m ou Z', 'conjurar magia'],
   ['A', 'habilidades de classe'],
   ['C', 'ficha do personagem (e pontos de atributo)'],
+  ['I', 'itens descobertos (identificação)'],
   ['M ou Ctrl+P', 'histórico de mensagens'],
   ['S', 'salvar e voltar ao título'],
   ['?', 'esta ajuda'],

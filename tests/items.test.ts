@@ -11,6 +11,7 @@ import { monsterTemplate } from '../src/data/monsters';
 import { CLASSES } from '../src/data/classes';
 import { RNG } from '../src/engine/rng';
 import { createTestGame } from './helpers';
+import { learn } from '../src/core/identify';
 
 function warriorGame() {
   const g = createTestGame(4);
@@ -26,6 +27,7 @@ describe('nomes de itens', () => {
     const g = warriorGame();
     expect(itemName(g, createItem(g, 'long_sword'))).toBe('uma espada longa');
     expect(itemName(g, createItem(g, 'long_sword', { enchant: 2 }), 'the')).toBe('a espada longa +2');
+    learn(g, 'potion_heal');
     expect(itemName(g, createItem(g, 'potion_heal', { quantity: 3 }))).toBe('3 poções de cura');
     expect(itemName(g, createItem(g, 'arrow', { quantity: 12 }))).toBe('12 flechas');
     expect(pluralize('bordão')).toBe('bordões');

@@ -11,6 +11,7 @@ import { classById } from '../data/classes';
 import { CATEGORY_SLOT, itemBase } from '../data/items';
 import { createItem } from './item';
 import type { Item } from './item';
+import { createIdState, learn } from './identify';
 import { addToInventory, equip, equipped } from './inventory';
 
 /** Escolhas feitas na criação do personagem. */
@@ -38,11 +39,14 @@ export function createGame(seed: number, spec: HeroSpec = DEFAULT_HERO): Game {
     events: [],
     uniquesKilled: [],
     artifactsFound: [],
+    idState: createIdState(seed),
     hasAmulet: false,
     rng: createRngs(seed),
     nextId: 2,
   };
   giveStartingKit(game);
+  // O personagem conhece o próprio equipamento inicial.
+  for (const it of game.hero.inventory) learn(game, it.baseId);
   recalcPlayer(game);
   game.player.hp = game.player.maxHp;
   game.player.mp = game.player.maxMp;

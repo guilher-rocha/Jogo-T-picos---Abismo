@@ -73,8 +73,12 @@ export const MAX_SIGHT = 30;
  * Atualiza o que o jogador vê. Uma célula é visível se está na linha de visão E
  * (dentro do raio de luz do jogador OU numa área iluminada). Tudo que é visto vai para a memória.
  */
-export function updatePlayerFov(map: GameMap, px: number, py: number, lightRadius: number): void {
+export function updatePlayerFov(map: GameMap, px: number, py: number, lightRadius: number, blind = false): void {
   map.visible.fill(0);
+  if (blind) {
+    map.visible[idx(map, px, py)] = 1;
+    return;
+  }
   const blocks = (x: number, y: number) => !isTransparent(map, x, y);
   computeFov(px, py, MAX_SIGHT, blocks, (x, y) => {
     if (!inBounds(map, x, y)) return;

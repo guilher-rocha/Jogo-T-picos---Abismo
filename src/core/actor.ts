@@ -1,5 +1,7 @@
 import type { Color } from '../engine/colors';
 import type { Point } from './map';
+import type { StatusEffect } from './status';
+import type { Item } from './item';
 
 /** Energia necessária para agir. Uma ação normal custa isso. */
 export const ACTION_COST = 100;
@@ -74,6 +76,10 @@ export interface Actor {
   flags: string[];
   /** Resistências elementais em % (50 = metade do dano, 100 = imune). */
   resist?: Partial<Record<Element, number>>;
+  /** Efeitos de status ativos (veneno, confusão, acelerado...). */
+  effects?: StatusEffect[];
+  /** Itens roubados/carregados por um monstro (caem quando ele morre). */
+  loot?: Item[];
 }
 
 export function createActor(id: number, props: Partial<Actor> & Pick<Actor, 'templateId' | 'name' | 'glyph' | 'color'>): Actor {

@@ -6,6 +6,8 @@ import type { Room } from '../gen/dungeon/common';
 import { isWalkable } from './map';
 import type { Item } from './item';
 import type { Hero } from './hero';
+import type { IdState } from './identify';
+import type { SpellDef } from '../data/spells';
 import type { LogMessage } from './log';
 import { pushMessage } from './log';
 import { updatePlayerFov } from './fov';
@@ -55,6 +57,10 @@ export interface Game {
   events: GameEvent[];
   /** Chefes únicos já derrotados (ids). */
   uniquesKilled: string[];
+  /** Aparências aleatórias e tipos de item já identificados. */
+  idState: IdState;
+  /** Magias geradas proceduralmente nesta partida (tomos raros). */
+  customSpells?: SpellDef[];
   /** Artefatos lendários já gerados (ids) — um de cada por partida. */
   artifactsFound: string[];
   /** O jogador pegou o Coração do Abismo. */
@@ -80,7 +86,8 @@ export function message(game: Game, text: string, color: Color = 'lightGray'): v
 
 /** Recalcula o campo de visão do jogador no andar atual. */
 export function refreshFov(game: Game): void {
-  updatePlayerFov(level(game).map, game.player.x, game.player.y, game.player.light);
+  const blind = (game.player.effects ?? []).some((e) => e.id === 'blind' && e.turns > 0);
+  updatePlayerFov(level(game).map, game.player.x, game.player.y, blind ? 0 : game.player.light, blind);
 }
 
 export function emit(game: Game, e: GameEvent): void {

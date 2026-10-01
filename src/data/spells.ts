@@ -6,7 +6,7 @@ export type SpellSchool = 'arcane' | 'divine';
 /** Forma do efeito: em si mesmo, projétil (para no 1º alvo), raio (atravessa), bola (explode em área). */
 export type SpellShape = 'self' | 'bolt' | 'beam' | 'ball';
 
-export type SpellEffect = 'damage' | 'heal' | 'teleport' | 'blink' | 'detect' | 'mapping' | 'slow' | 'sleep' | 'fear' | 'shield' | 'haste' | 'cure';
+export type SpellEffect = 'damage' | 'heal' | 'teleport' | 'blink' | 'detect' | 'mapping' | 'slow' | 'sleep' | 'fear' | 'shield' | 'haste' | 'cure' | 'dig';
 
 export interface SpellDef {
   id: string;
