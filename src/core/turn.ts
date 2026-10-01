@@ -2,7 +2,7 @@ import { ACTION_COST } from './actor';
 import type { Action } from './actions';
 import { perform } from './actions';
 import type { Game } from './game';
-import { level } from './game';
+import { level, refreshFov } from './game';
 import { decideAction } from '../ai/behaviors';
 
 /**
@@ -16,6 +16,7 @@ export function playerAction(game: Game, action: Action): boolean {
   if (cost <= 0) return false;
   game.player.energy -= cost;
   runUntilPlayerTurn(game);
+  refreshFov(game);
   return true;
 }
 

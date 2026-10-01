@@ -7,6 +7,7 @@ import type { Room } from '../gen/dungeon/common';
 import { isWalkable, mapFromStrings } from './map';
 import type { LogMessage } from './log';
 import { pushMessage } from './log';
+import { updatePlayerFov } from './fov';
 import { monsterTemplate } from '../data/monsters';
 
 /** Um andar da masmorra: mapa + monstros. */
@@ -51,6 +52,14 @@ export function level(game: Game): Level {
 
 export function message(game: Game, text: string, color: Color = 'lightGray'): void {
   pushMessage(game.log, text, color, game.turn);
+}
+
+/** Raio de luz do jogador (tocha). */
+export const PLAYER_LIGHT = 3;
+
+/** Recalcula o campo de visão do jogador no andar atual. */
+export function refreshFov(game: Game): void {
+  updatePlayerFov(level(game).map, game.player.x, game.player.y, PLAYER_LIGHT);
 }
 
 export function newId(game: Game): number {

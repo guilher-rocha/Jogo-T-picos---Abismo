@@ -2,7 +2,7 @@ import type { Screen } from '../engine/screens';
 import type { Terminal } from '../engine/terminal';
 import type { KeyInput } from '../data/keymap';
 import { commandForKey } from '../data/keymap';
-import { tileDef } from '../data/tiles';
+import { Tile, tileDef } from '../data/tiles';
 import type { Game } from '../core/game';
 import { level, message } from '../core/game';
 import { createGame } from '../core/world';
@@ -10,6 +10,9 @@ import { idx } from '../core/map';
 import { playerAction } from '../core/turn';
 import { formatMessage } from '../core/log';
 import { FOOT_Y, MAP_X, MAP_Y, MSG_LINES, SIDE_X } from './layout';
+
+/** Terrenos importantes que continuam bem visíveis na memória. */
+const REMEMBER_BRIGHT = new Set<number>([Tile.StairsDown, Tile.StairsUp, Tile.DoorClosed, Tile.DoorOpen, Tile.Fountain, Tile.Altar]);
 
 export interface GameScreenOptions {
   debug: boolean;
@@ -41,11 +44,17 @@ export class GameScreen implements Screen {
     const { map, actors } = level(game);
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
-        const def = tileDef(map.tiles[idx(map, x, y)]);
-        term.set(MAP_X + x, MAP_Y + y, def.glyph, def.fg, def.bg);
+        const i = idx(map, x, y);
+        if (!map.explored[i]) continue;
+        const t = map.tiles[i];
+        const def = tileDef(t);
+        if (map.visible[i]) term.set(MAP_X + x, MAP_Y + y, def.glyph, def.fg, def.bg);
+        else term.set(MAP_X + x, MAP_Y + y, def.glyph, REMEMBER_BRIGHT.has(t) ? 'darkGray' : 'memory');
       }
     }
-    for (const a of actors) term.set(MAP_X + a.x, MAP_Y + a.y, a.glyph, a.color);
+    for (const a of actors) {
+      if (map.visible[idx(map, a.x, a.y)]) term.set(MAP_X + a.x, MAP_Y + a.y, a.glyph, a.color);
+    }
     const p = game.player;
     term.set(MAP_X + p.x, MAP_Y + p.y, p.glyph, p.color);
 

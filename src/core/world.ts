@@ -1,5 +1,5 @@
 import type { Game } from './game';
-import { createRngs, message } from './game';
+import { createRngs, message, refreshFov } from './game';
 import { createActor } from './actor';
 import { buildLevel } from '../gen/level';
 
@@ -19,6 +19,7 @@ export function createGame(seed: number): Game {
   game.levels[1] = lvl;
   game.player.x = lvl.up.x;
   game.player.y = lvl.up.y;
+  refreshFov(game);
   message(game, 'Você desce para o Abismo. Encontre o caminho para baixo...', 'yellow');
   return game;
 }
