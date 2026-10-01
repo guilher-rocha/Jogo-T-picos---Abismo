@@ -1,29 +1,37 @@
 import { describe, it, expect } from 'vitest';
-import { createTestGame, movePlayer } from '../src/core/game';
+import { createTestGame, level } from '../src/core/game';
+import { playerAction } from '../src/core/turn';
 import { commandForKey, type KeyInput } from '../src/data/keymap';
 
 const key = (key: string, extra: Partial<KeyInput> = {}): KeyInput => ({ key, code: '', shift: false, ctrl: false, alt: false, ...extra });
 
+/** Partida de teste sem monstros, para testar só o movimento. */
+function emptyGame() {
+  const g = createTestGame();
+  level(g).actors = [];
+  return g;
+}
+
 describe('movimento', () => {
   it('anda nas 8 direções em chão livre', () => {
-    const g = createTestGame();
+    const g = emptyGame();
     g.player.x = 8;
-    g.player.y = 4; // corredor/sala larga
+    g.player.y = 4;
     const dirs = [[1, 0], [-1, 0], [0, -1], [0, 1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
     for (const [dx, dy] of dirs) {
       const { x, y } = g.player;
-      expect(movePlayer(g, dx, dy)).toBe(true);
+      expect(playerAction(g, { type: 'move', dx, dy })).toBe(true);
       expect(g.player).toMatchObject({ x: x + dx, y: y + dy });
     }
   });
 
   it('não atravessa paredes e não gasta turno ao bater', () => {
-    const g = createTestGame();
+    const g = emptyGame();
     g.player.x = 4;
-    g.player.y = 2; // canto superior esquerdo da primeira sala
+    g.player.y = 2;
     const turn = g.turn;
-    expect(movePlayer(g, -1, 0)).toBe(false);
-    expect(movePlayer(g, 0, -1)).toBe(false);
+    expect(playerAction(g, { type: 'move', dx: -1, dy: 0 })).toBe(false);
+    expect(playerAction(g, { type: 'move', dx: 0, dy: -1 })).toBe(false);
     expect(g.player).toMatchObject({ x: 4, y: 2 });
     expect(g.turn).toBe(turn);
   });
