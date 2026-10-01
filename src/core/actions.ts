@@ -2,7 +2,7 @@ import type { Actor } from './actor';
 import { ACTION_COST, hasFlag } from './actor';
 import type { Game } from './game';
 import { actorAt, level, message } from './game';
-import { getTile, isWalkable, setTile } from './map';
+import { DIRS8, getTile, isWalkable, setTile } from './map';
 import { Tile } from '../data/tiles';
 import { meleeAttack } from './combat';
 import { enterLevel } from './world';
@@ -39,7 +39,8 @@ export type Action =
   | { type: 'fire'; tx: number; ty: number }
   | { type: 'read'; itemId: number }
   | { type: 'zap'; itemId: number; tx: number; ty: number }
-  | { type: 'invoke' };
+  | { type: 'invoke' }
+  | { type: 'search' };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -66,6 +67,8 @@ export function perform(game: Game, actor: Actor, action: Action): number {
       return doStairs(game, actor, 'up');
     case 'fire':
       return actor.isPlayer ? fire(game, actor, { x: action.tx, y: action.ty }) : 0;
+    case 'search':
+      return actor.isPlayer ? doSearch(game) : 0;
     case 'invoke':
       if (!actor.isPlayer || !game.hasAmulet) {
         message(game, 'Você não tem nada para invocar.', 'darkGray');
@@ -166,6 +169,22 @@ function doStairs(game: Game, actor: Actor, dir: 'up' | 'down'): number {
     return 0;
   }
   enterLevel(game, game.depth - 1, 'down');
+  return ACTION_COST;
+}
+
+/** Procura portas secretas nas casas vizinhas. */
+function doSearch(game: Game): number {
+  const map = level(game).map;
+  const p = game.player;
+  const chance = 30 + (p.flags.includes('secretSense') ? 30 : 0) + 3 * game.hero.level;
+  for (const d of DIRS8) {
+    const x = p.x + d.x;
+    const y = p.y + d.y;
+    if (getTile(map, x, y) === Tile.SecretDoor && game.rng.loot.chance(chance)) {
+      setTile(map, x, y, Tile.DoorClosed);
+      message(game, 'Você encontra uma porta secreta!', 'yellow');
+    }
+  }
   return ACTION_COST;
 }
 

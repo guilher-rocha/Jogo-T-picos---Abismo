@@ -1,14 +1,30 @@
 import type { ScreenManager } from '../engine/screens';
 import type { HighScore } from '../core/score';
+import type { Game } from '../core/game';
 
-/** Contexto compartilhado entre as telas. */
+/** Contexto compartilhado entre as telas (o "controlador" do fluxo de telas). */
 export interface App {
   screens: ScreenManager;
   debug: boolean;
-  /** Volta ao início (criação de personagem / tela de título). */
+  /** Volta à tela de título. */
+  showTitle: () => void;
+  /** Mesmo que showTitle (compatibilidade). */
   restart: () => void;
+  newGame: () => void;
+  hasSave: () => boolean;
+  continueGame: () => void;
+  /** Desafio diário (seed do dia) — pode não estar disponível. */
+  dailyChallenge: () => void;
+  showOptions: () => void;
+  showHighScores: (cycle: boolean, highlight?: number) => void;
+  startAttract: () => void;
+  /** Fim de partida: mostra GAME OVER / vitória. */
+  gameOver: (game: Game, rank: number) => void;
+  exportMorgue: (game: Game) => void;
   /** Quadro de recordes (top 10). */
   highScores: HighScore[];
+  /** Funcionalidades disponíveis (vão sendo ligadas conforme as etapas). */
+  features: { daily: boolean; options: boolean };
   /** Registra uma pontuação; retorna a posição no quadro (-1 = não entrou). */
   recordScore: (entry: HighScore) => number;
 }

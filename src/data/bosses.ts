@@ -3,11 +3,11 @@ import type { MonsterTemplate } from './monsters';
 /** Chefes únicos: aparecem guardando a escada dos andares 5, 10, 15 e o Coração no 20. */
 export const BOSSES: (MonsterTemplate & { bossDepth: number; escort: { id: string; count: [number, number] }[]; intro: string })[] = [
   {
-    id: 'goblin_king', name: 'Rei Goblin Grutch', gender: 'm', glyph: 'g', color: 'yellow', level: 7, hp: '10d10', speed: 100,
-    accuracy: 9, defense: 9, attacks: [{ verb: 'golpeia', damage: '2d6' }, { verb: 'golpeia', damage: '1d8' }], xp: 160,
+    id: 'goblin_king', name: 'Rei Goblin Grutch', gender: 'm', glyph: 'g', color: 'yellow', level: 7, hp: '8d10', speed: 100,
+    accuracy: 8, defense: 8, attacks: [{ verb: 'golpeia', damage: '2d5' }, { verb: 'golpeia', damage: '1d6' }], xp: 160,
     flags: ['unique', 'boss', 'opensDoors'], depth: [0, 0], rarity: 0,
     desc: 'Gordo, cruel e coroado com uma panela amassada. Seus súditos morrem por ele.',
-    bossDepth: 5, escort: [{ id: 'goblin', count: [3, 4] }, { id: 'goblin_shaman', count: [1, 1] }],
+    bossDepth: 5, escort: [{ id: 'goblin', count: [2, 3] }, { id: 'goblin_shaman', count: [1, 1] }],
     intro: 'Você ouve tambores e risadas guturais. O Rei Goblin governa este andar!',
   },
   {

@@ -28,6 +28,8 @@ import { EquipmentScreen, InventoryScreen, fireCommand, pickFromInventory, picku
 import { isEquipped, slotOf } from '../core/inventory';
 import { itemBase } from '../data/items';
 import { createMonster } from '../core/monster';
+import { threatsVisible } from '../ai/bot';
+import { damage } from '../core/combat';
 import { monstersForDepth } from '../gen/populate';
 import { createGame, enterLevel } from '../core/world';
 import { playerAction } from '../core/turn';
@@ -46,6 +48,7 @@ export class GameScreen implements Screen, ItemHost {
   }
 
   private recorded = false;
+  private overAt = 0;
   private rank = -1;
 
   /** Executa uma ação do jogador e transforma o que aconteceu em animações. */
@@ -54,6 +57,7 @@ export class GameScreen implements Screen, ItemHost {
     playEvents(this.anims, this.game.events);
     if (this.game.over && !this.recorded) {
       this.recorded = true;
+      this.overAt = performance.now();
       this.rank = this.app.recordScore(highScoreEntry(this.game));
     }
     return ok;
@@ -64,8 +68,8 @@ export class GameScreen implements Screen, ItemHost {
     if (this.anims.busy) this.anims.skipAll();
     if (this.app.debug && this.debugKey(k)) return;
     if (this.game.over) {
-      // Provisório (a tela de Game Over vem na Etapa 3): Enter volta à criação de personagem.
-      if (k.key === 'Enter') this.app.restart();
+      // Qualquer tecla (depois de um instante) mostra a tela de fim de partida.
+      if (performance.now() - this.overAt > 500) this.app.gameOver(this.game, this.rank);
       return;
     }
     const cmd = commandForKey(k);
@@ -129,6 +133,12 @@ export class GameScreen implements Screen, ItemHost {
         break;
       case 'invoke':
         this.act({ type: 'invoke' });
+        break;
+      case 'search':
+        this.act({ type: 'search' });
+        break;
+      case 'rest':
+        this.rest();
         break;
       case 'descend':
         this.act({ type: 'descend' });
@@ -202,6 +212,22 @@ export class GameScreen implements Screen, ItemHost {
     }, { width: 92 }));
   }
 
+  /** Descansa (procurando) até curar HP/MP, ser atacado ou ver um monstro. */
+  private rest(): void {
+    const g = this.game;
+    if (threatsVisible(g).length) {
+      message(g, 'Você não pode descansar com inimigos por perto!', 'orange');
+      return;
+    }
+    const hp = g.player.hp;
+    message(g, 'Você descansa...', 'darkGray');
+    for (let i = 0; i < 500; i++) {
+      if (g.over || threatsVisible(g).length || g.player.hp < hp) break;
+      if (g.player.hp >= g.player.maxHp && g.player.mp >= g.player.maxMp) break;
+      if (!this.act({ type: 'search' })) break;
+    }
+  }
+
   /** Corre numa direção até algo interessante acontecer. */
   private run(dx: number, dy: number): void {
     const g = this.game;
@@ -249,6 +275,16 @@ export class GameScreen implements Screen, ItemHost {
       playEvents(this.anims, this.game.events);
       return true;
     }
+    if (k.key === 'F9' || k.key === 'F10') {
+      const g = this.game;
+      if (k.key === 'F9') damage(g, g.player, 9999);
+      else {
+        g.hasAmulet = true;
+        g.player.energy = 100;
+      }
+      this.act(k.key === 'F9' ? { type: 'wait' } : { type: 'invoke' });
+      return true;
+    }
     if (k.key === 'F3') {
       const map = level(this.game).map;
       map.explored.fill(1);
@@ -283,7 +319,7 @@ export class GameScreen implements Screen, ItemHost {
     if (game.over) {
       const rank = this.rank >= 0 ? ` {gold}${this.rank + 1}º lugar no quadro de recordes!{/}` : '';
       const head = game.over.won ? '{gold}VITÓRIA!{/}' : '{red}Você morreu{/}';
-      term.print(0, FOOT_Y + 1, `${head} (${game.over.cause}) — ${score} pontos.${rank} {white}Enter{/} recomeça.`, 'lightGray');
+      term.print(0, FOOT_Y + 1, `${head} (${game.over.cause}) — ${score} pontos.${rank} {white}[tecla]{/} continuar`, 'lightGray');
     } else {
       term.print(0, FOOT_Y + 1, 'Mova/ataque com {white}hjklyubn{/}/{white}setas{/}/{white}numpad{/} · {white}i{/} inventário · {white}?{/} ajuda', 'darkGray');
     }

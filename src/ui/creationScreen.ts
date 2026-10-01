@@ -24,12 +24,12 @@ export class CreationScreen implements Screen {
   private rollSeed: number | undefined;
   private nameRng = new RNG(freshSeed());
 
-  constructor(_app: App, private onStart: (spec: HeroSpec) => void) {}
+  constructor(private app: App, private onStart: (spec: HeroSpec) => void) {}
 
   onKey(k: KeyInput): void {
     switch (this.step) {
       case 'race':
-        this.listKey(k, RACES.length, (i) => (this.race = i), () => (this.step = 'class'));
+        this.listKey(k, RACES.length, (i) => (this.race = i), () => (this.step = 'class'), () => this.app.showTitle());
         break;
       case 'class':
         this.listKey(k, CLASSES.length, (i) => (this.cls = i), () => {
@@ -100,7 +100,7 @@ export class CreationScreen implements Screen {
     y++;
     term.print(x, y++, 'Traços:', 'darkGray');
     for (const l of wrapText(r.traitText, 64)) term.print(x, y++, l, 'lightCyan');
-    term.print(3, SCREEN_ROWS - 2, '[a-f / setas] escolhe · [Enter] continua', 'darkGray');
+    term.print(3, SCREEN_ROWS - 2, '[a-f / setas] escolhe · [Enter] continua · [Esc] volta ao título', 'darkGray');
   }
 
   private renderClasses(term: Terminal): void {
