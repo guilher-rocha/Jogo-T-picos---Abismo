@@ -2,7 +2,8 @@ import { RNG } from '../engine/rng';
 import type { Color } from '../engine/colors';
 import type { Actor } from './actor';
 import { createActor } from './actor';
-import type { GameMap } from './map';
+import type { GameMap, Point } from './map';
+import type { Room } from '../gen/dungeon/common';
 import { isWalkable, mapFromStrings } from './map';
 import type { LogMessage } from './log';
 import { pushMessage } from './log';
@@ -14,6 +15,9 @@ export interface Level {
   map: GameMap;
   /** Monstros do andar (o jogador fica em Game.player). */
   actors: Actor[];
+  up: Point;
+  down: Point;
+  rooms: Room[];
 }
 
 /** Fluxos independentes de números aleatórios. */
@@ -90,7 +94,7 @@ export function createTestGame(seed = 1): Game {
     seed,
     turn: 0,
     depth: 1,
-    levels: { 1: { depth: 1, map, actors: [] } },
+    levels: { 1: { depth: 1, map, actors: [], up: { x: 6, y: 3 }, down: { x: 40, y: 13 }, rooms: [] } },
     player: createActor(1, { templateId: 'player', name: 'você', glyph: '@', color: 'white', x: 6, y: 3, isPlayer: true, energy: 100 }),
     log: [],
     rng: createRngs(seed),

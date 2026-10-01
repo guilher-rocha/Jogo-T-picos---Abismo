@@ -4,7 +4,8 @@ import { ScreenManager } from './engine/screens';
 import type { KeyInput } from './data/keymap';
 import { SCREEN_COLS, SCREEN_ROWS } from './ui/layout';
 import { GameScreen } from './ui/gameScreen';
-import { createTestGame } from './core/game';
+import { createGame } from './core/world';
+import { freshSeed } from './engine/rng';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const term = new Terminal(SCREEN_COLS, SCREEN_ROWS);
@@ -12,7 +13,11 @@ const renderer = new CanvasRenderer(canvas, term);
 const screens = new ScreenManager();
 window.addEventListener('resize', () => renderer.resize());
 
-screens.replace(new GameScreen(createTestGame()));
+const params = new URLSearchParams(location.search);
+const debug = params.get('debug') === '1';
+const seedParam = params.get('seed');
+const seed = seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : freshSeed();
+screens.replace(new GameScreen(createGame(seed), { debug }));
 
 /** Teclas que o navegador usaria para outra coisa (rolar a página, etc.). */
 const PREVENT = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', ' ', 'Tab', 'Backspace', '/', "'"]);
