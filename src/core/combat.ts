@@ -3,6 +3,7 @@ import type { Game } from './game';
 import { emit, level, message } from './game';
 import { aName, capitalize, theName } from './text';
 import { addItem, createCorpse } from './item';
+import { gainXp, killXp } from './hero';
 
 /** Chance de acerto (%), sempre entre 5 e 95. */
 export function hitChance(attacker: Actor, defender: Actor): number {
@@ -73,7 +74,12 @@ export function damage(game: Game, target: Actor, amount: number, source?: Actor
 export function killMonster(game: Game, monster: Actor, killer?: Actor): void {
   const lvl = level(game);
   lvl.actors = lvl.actors.filter((m) => m !== monster);
-  if (killer?.isPlayer) message(game, `Você mata ${theName(monster)}!`, 'yellow');
-  else message(game, `${capitalize(theName(monster))} morre.`, 'lightGray');
   addItem(lvl, createCorpse(game, monster));
+  if (killer?.isPlayer) {
+    message(game, `Você mata ${theName(monster)}!`, 'yellow');
+    game.hero.kills++;
+    gainXp(game, killXp(monster.xpValue, monster.level, game.hero.level));
+  } else {
+    message(game, `${capitalize(theName(monster))} morre.`, 'lightGray');
+  }
 }

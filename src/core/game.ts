@@ -5,6 +5,7 @@ import type { GameMap, Point } from './map';
 import type { Room } from '../gen/dungeon/common';
 import { isWalkable } from './map';
 import type { Item } from './item';
+import type { Hero } from './hero';
 import type { LogMessage } from './log';
 import { pushMessage } from './log';
 import { updatePlayerFov } from './fov';
@@ -46,6 +47,7 @@ export interface Game {
   maxDepth: number;
   levels: Record<number, Level>;
   player: Actor;
+  hero: Hero;
   log: LogMessage[];
   rng: GameRngs;
   nextId: number;
@@ -68,12 +70,9 @@ export function message(game: Game, text: string, color: Color = 'lightGray'): v
   pushMessage(game.log, text, color, game.turn);
 }
 
-/** Raio de luz do jogador (tocha). */
-export const PLAYER_LIGHT = 3;
-
 /** Recalcula o campo de visão do jogador no andar atual. */
 export function refreshFov(game: Game): void {
-  updatePlayerFov(level(game).map, game.player.x, game.player.y, PLAYER_LIGHT);
+  updatePlayerFov(level(game).map, game.player.x, game.player.y, game.player.light);
 }
 
 export function emit(game: Game, e: GameEvent): void {

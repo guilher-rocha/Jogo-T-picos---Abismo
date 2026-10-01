@@ -1,27 +1,41 @@
 import type { Game } from './game';
+import { RNG } from '../engine/rng';
 import { createRngs, emit, level, message, refreshFov } from './game';
 import { createActor } from './actor';
 import { buildLevel } from '../gen/level';
 import { themeById, themeForDepth } from '../data/themes';
 import { isWalkable, DIRS8 } from './map';
+import { createHero, gainXp, recalcPlayer } from './hero';
+
+/** Escolhas feitas na criação do personagem. */
+export interface HeroSpec {
+  name: string;
+  raceId: string;
+  classId: string;
+  /** Se presente, aplica a variação aleatória de atributos com esta seed. */
+  rollSeed?: number;
+}
+
+export const DEFAULT_HERO: HeroSpec = { name: 'Aventureiro', raceId: 'human', classId: 'warrior' };
 
 /** Cria uma partida nova com o primeiro andar gerado proceduralmente. */
-export function createGame(seed: number): Game {
+export function createGame(seed: number, spec: HeroSpec = DEFAULT_HERO): Game {
   const game: Game = {
     seed,
     turn: 0,
     depth: 1,
     maxDepth: 1,
     levels: {},
-    player: createActor(1, {
-      templateId: 'player', name: 'você', glyph: '@', color: 'white', isPlayer: true, energy: 100,
-      hp: 20, maxHp: 20, accuracy: 3, defense: 3, attacks: [{ verb: 'acerta', damage: '1d6+1' }],
-    }),
+    player: createActor(1, { templateId: 'player', name: 'você', glyph: '@', color: 'white', isPlayer: true, energy: 100 }),
+    hero: createHero(spec.name, spec.raceId, spec.classId, spec.rollSeed !== undefined ? new RNG(spec.rollSeed) : undefined),
     log: [],
     events: [],
     rng: createRngs(seed),
     nextId: 2,
   };
+  recalcPlayer(game);
+  game.player.hp = game.player.maxHp;
+  game.player.mp = game.player.maxMp;
   enterLevel(game, 1, 'up');
   message(game, 'Você desce para o Abismo. Encontre o caminho para baixo...', 'yellow');
   return game;
@@ -47,7 +61,8 @@ export function enterLevel(game: Game, depth: number, arrive: 'up' | 'down'): vo
   game.player.y = spot.y;
   const firstVisit = !lvl.visited;
   lvl.visited = true;
-  if (depth > game.maxDepth) game.maxDepth = depth;
+  const deeper = depth > game.maxDepth;
+  if (deeper) game.maxDepth = depth;
   refreshFov(game);
   emit(game, { type: 'stairs' });
   if (game.turn > 0) {
@@ -55,4 +70,6 @@ export function enterLevel(game: Game, depth: number, arrive: 'up' | 'down'): vo
     message(game, `Você ${arrive === 'up' ? 'desce' : 'sobe'} para o andar ${depth}.`, 'white');
     if (firstVisit && theme.id !== previousTheme) message(game, `— ${theme.name} —`, themeForDepth(depth).wall);
   }
+  // Explorar mais fundo também dá experiência.
+  if (deeper) gainXp(game, 5 * depth);
 }

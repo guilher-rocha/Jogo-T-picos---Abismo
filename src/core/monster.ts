@@ -23,6 +23,7 @@ export function createMonster(game: Game, t: MonsterTemplate, x: number, y: numb
     defense: t.defense,
     attacks: t.attacks.map((a) => ({ ...a })),
     xpValue: t.xp,
+    level: t.level,
     flags: [...t.flags],
     // A maioria dos monstros começa dormindo.
     ai: { state: rng.chance(70) ? 'sleeping' : 'wandering', lostTurns: 0 },

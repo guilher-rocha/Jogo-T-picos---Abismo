@@ -7,6 +7,9 @@ import { formatMessage } from '../core/log';
 import { healthDesc } from '../core/text';
 import { FOOT_Y, MAP_Y, MSG_LINES, SIDE_W, SIDE_X } from './layout';
 import { themeById } from '../data/themes';
+import { classById } from '../data/classes';
+import { raceById } from '../data/races';
+import { MAX_LEVEL, xpForLevel } from '../core/hero';
 
 /** Barra de progresso "████░░░░". */
 export function bar(term: Terminal, x: number, y: number, width: number, value: number, max: number, color: Color): void {
@@ -35,18 +38,29 @@ export function drawSidebar(term: Terminal, game: Game): void {
   const p = game.player;
   const x = SIDE_X;
   let y = MAP_Y;
-  term.print(x, y++, 'Aventureiro', 'white');
+  const hero = game.hero;
+  term.print(x, y++, hero.name, 'white', 'black', SIDE_W);
+  term.print(x, y++, `${raceById(hero.raceId).name} ${classById(hero.classId).name}`, 'lightGray', 'black', SIDE_W);
+  term.print(x, y, `Nível {white}${hero.level}{/}`, 'lightGray');
+  if (hero.statPoints > 0) term.print(x + 10, y, '+atrib!', 'gold');
   y++;
+  const base = xpForLevel(hero.level);
+  const next = hero.level < MAX_LEVEL ? xpForLevel(hero.level + 1) : hero.xp;
+  bar(term, x, y++, SIDE_W - 1, hero.xp - base, Math.max(1, next - base), 'gold');
   term.print(x, y, 'HP', 'lightGray');
   term.print(x + 3, y, `${p.hp}/${p.maxHp}`, hpColor(p.hp, p.maxHp));
   y++;
   bar(term, x, y++, SIDE_W - 1, p.hp, p.maxHp, hpColor(p.hp, p.maxHp));
-  y++;
+  if (p.maxMp > 0) {
+    term.print(x, y, 'MP', 'lightGray');
+    term.print(x + 3, y, `${p.mp}/${p.maxMp}`, 'lightBlue');
+    y++;
+    bar(term, x, y++, SIDE_W - 1, p.mp, p.maxMp, 'lightBlue');
+  }
   const theme = themeById(level(game).theme);
   term.print(x, y++, `Andar {white}${game.depth}{/}`, 'lightGray');
   term.print(x, y++, theme.name, theme.wall, 'black', SIDE_W);
   term.print(x, y++, `Turno {white}${game.turn}{/}`, 'lightGray');
-  y++;
 
   const lvl = level(game);
   const visible = lvl.actors

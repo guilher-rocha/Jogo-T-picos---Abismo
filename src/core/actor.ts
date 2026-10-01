@@ -55,6 +55,12 @@ export interface Actor {
   energy: number;
   hp: number;
   maxHp: number;
+  mp: number;
+  maxMp: number;
+  /** Nível (monstros: do modelo; jogador: do herói). */
+  level: number;
+  /** Raio de luz/visão (só o jogador usa). */
+  light: number;
   /** Bônus de acerto. */
   accuracy: number;
   /** Classe de armadura (dificulta ser acertado). */
@@ -77,6 +83,10 @@ export function createActor(id: number, props: Partial<Actor> & Pick<Actor, 'tem
     energy: 0,
     hp: 1,
     maxHp: 1,
+    mp: 0,
+    maxMp: 0,
+    level: 1,
+    light: 0,
     accuracy: 0,
     defense: 0,
     attacks: [{ verb: 'acerta', damage: '1d2' }],

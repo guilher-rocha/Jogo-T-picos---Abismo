@@ -8,7 +8,8 @@ export type CommandName =
   | 'throw'
   | 'look'
   | 'descend'
-  | 'ascend';
+  | 'ascend'
+  | 'character';
 
 export interface Command {
   name: CommandName;
@@ -55,6 +56,7 @@ const SIMPLE_KEYS: Record<string, CommandName> = {
   t: 'throw',
   x: 'look',
   ';': 'look',
+  C: 'character',
   '>': 'descend',
   '<': 'ascend',
 };
@@ -69,6 +71,7 @@ export const KEY_HELP: [string, string][] = [
   ['> / <', 'descer / subir escada'],
   ['t', 'arremessar (dardo)'],
   ['x ou ;', 'olhar (inspecionar o mapa)'],
+  ['C', 'ficha do personagem (e pontos de atributo)'],
   ['M ou Ctrl+P', 'histórico de mensagens'],
   ['?', 'esta ajuda'],
 ];

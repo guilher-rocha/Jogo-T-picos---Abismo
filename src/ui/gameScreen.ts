@@ -11,6 +11,9 @@ import { itemsAt } from '../core/item';
 import type { App } from './app';
 import { TextWindow } from './textWindow';
 import { TargetScreen } from './targetScreen';
+import { CharacterScreen } from './characterScreen';
+import { gainXp, xpForLevel } from '../core/hero';
+import { raceById } from '../data/races';
 import { AnimationQueue } from '../engine/animations';
 import { playEvents } from './effects';
 import { THROW_RANGE } from '../core/actions';
@@ -74,6 +77,9 @@ export class GameScreen implements Screen {
       case 'ascend':
         this.act({ type: 'ascend' });
         break;
+      case 'character':
+        this.app.screens.push(new CharacterScreen(this.app, this.game));
+        break;
       case 'look':
         this.app.screens.push(new TargetScreen(this.app, this.game, { mode: 'look', prompt: 'Olhar:' }));
         break;
@@ -125,6 +131,12 @@ export class GameScreen implements Screen {
     if (k.key === 'F6') {
       enterLevel(this.game, Math.min(20, this.game.depth + 1), 'up');
       message(this.game, `[debug] andar ${this.game.depth}`, 'lightMagenta');
+      return true;
+    }
+    if (k.key === 'F7') {
+      const h = this.game.hero;
+      gainXp(this.game, Math.ceil((xpForLevel(h.level + 1) - h.xp) / raceById(h.raceId).xpMult));
+      playEvents(this.anims, this.game.events);
       return true;
     }
     if (k.key === 'F3') {
