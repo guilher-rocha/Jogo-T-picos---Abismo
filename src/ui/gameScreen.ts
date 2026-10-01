@@ -359,7 +359,9 @@ export class GameScreen implements Screen, ItemHost {
     if (this.app.debug) term.print(SIDE_X, FOOT_Y - 1, `seed ${game.seed}`, 'lightMagenta');
     const score = computeScore(game).total;
     const best = Math.max(score, this.app.highScores[0]?.score ?? 0);
-    term.print(0, FOOT_Y, `Pontos {white}${score}{/}   Recorde {gold}${best}{/}`, 'lightGray');
+    const goal = game.challenge ? `   Meta {${score > game.challenge.target ? 'lightGreen' : 'yellow'}}${game.challenge.target}{/}` : '';
+    const daily = game.daily ? `   {lightCyan}Desafio diário ${game.daily}{/}` : '';
+    term.print(0, FOOT_Y, `Pontos {white}${score}{/}   Recorde {gold}${best}{/}${goal}${daily}`, 'lightGray');
     if (game.over) {
       const rank = this.rank >= 0 ? ` {gold}${this.rank + 1}º lugar no quadro de recordes!{/}` : '';
       const head = game.over.won ? '{gold}VITÓRIA!{/}' : '{red}Você morreu{/}';

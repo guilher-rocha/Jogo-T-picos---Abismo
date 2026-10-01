@@ -19,6 +19,8 @@ import { morgueLines } from './core/morgue';
 import { deleteSave, hasSave, loadGame, loadHighScores, loadSettings, saveGame, saveHighScores, saveSettings } from './persist/save';
 import { DEFAULT_SETTINGS, OptionsScreen } from './ui/optionsScreen';
 import { themeById } from './engine/themes';
+import { dailyChallenge, todayString } from './core/challenge';
+import { CodeEntryScreen } from './ui/codeEntryScreen';
 import { sound } from './engine/sound';
 import { message } from './core/game';
 
@@ -36,8 +38,14 @@ const quick = params.get('quick') === '1';
 const classParam = params.get('class');
 const raceParam = params.get('race');
 
-function startGame(spec: HeroSpec, seed = fixedSeed ?? freshSeed()): void {
-  screens.replace(new GameScreen(app, createGame(seed, spec)));
+function startGame(spec: HeroSpec, seed = fixedSeed ?? freshSeed(), extras: { daily?: string; target?: number } = {}): void {
+  const game = createGame(seed, spec);
+  if (extras.daily) game.daily = extras.daily;
+  if (extras.target !== undefined) {
+    game.challenge = { target: extras.target };
+    message(game, `Desafio aceito: faça mais de ${extras.target} pontos!`, 'gold');
+  }
+  screens.replace(new GameScreen(app, game));
 }
 
 /** Baixa um arquivo de texto (morgue). */
@@ -69,7 +77,16 @@ const app: App = {
     message(game, `Bem-vindo de volta, ${game.hero.name}.`, 'yellow');
     screens.replace(new GameScreen(app, game));
   },
-  dailyChallenge: () => {},
+  dailyChallenge: () => {
+    const date = todayString();
+    const d = dailyChallenge(date);
+    screens.replace(new CreationScreen(app, (spec) => startGame(spec, d.seed, { daily: date }), { raceId: d.raceId, classId: d.classId, title: `Desafio diário — ${date}` }));
+  },
+  acceptChallenge: () => {
+    screens.replace(new CodeEntryScreen(app, (c) => {
+      screens.replace(new CreationScreen(app, (spec) => startGame(spec, c.seed, { target: c.score }), { raceId: c.raceId, classId: c.classId, title: 'Desafio de um amigo' }));
+    }));
+  },
   showOptions: () => screens.push(new OptionsScreen(app, () => screens.pop())),
   settings: loadSettings(DEFAULT_SETTINGS),
   applySettings: (save: boolean) => {
@@ -87,7 +104,7 @@ const app: App = {
   },
   exportMorgue: (game: Game) => download(`abismo-${game.hero.name}-${game.seed}.txt`, morgueLines(game).join('\n')),
   highScores: loadHighScores(),
-  features: { daily: false, options: true },
+  features: { daily: true, options: true },
   recordScore: (entry) => {
     const rank = insertHighScore(app.highScores, entry);
     saveHighScores(app.highScores);

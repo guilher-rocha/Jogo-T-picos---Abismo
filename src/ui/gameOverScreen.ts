@@ -4,6 +4,7 @@ import type { KeyInput } from '../data/keymap';
 import type { Game } from '../core/game';
 import { computeScore } from '../core/score';
 import { morgueLines } from '../core/morgue';
+import { encodeChallenge } from '../core/challenge';
 import { wrapText } from '../engine/terminal';
 import type { App } from './app';
 import { GAME_OVER, TOMBSTONE, VICTORY } from './art';
@@ -17,6 +18,12 @@ export class GameOverScreen implements Screen {
   private phase: 'banner' | 'summary' = 'banner';
   private elapsed = 0;
   private scroll = 0;
+  private copied = false;
+
+  /** Código para desafiar um amigo com este mesmo mundo e personagem. */
+  private code(): string {
+    return encodeChallenge({ seed: this.game.seed, raceId: this.game.hero.raceId, classId: this.game.hero.classId, score: computeScore(this.game).total });
+  }
 
   constructor(private app: App, private game: Game, private rank: number) {}
 
@@ -41,6 +48,11 @@ export class GameOverScreen implements Screen {
     }
     if (k.key === 'x' || k.key === 'X') {
       this.app.exportMorgue(this.game);
+      return;
+    }
+    if (k.key === 'c' || k.key === 'C') {
+      navigator.clipboard?.writeText(this.code()).catch(() => {});
+      this.copied = true;
       return;
     }
     this.app.showHighScores(false, this.rank);
@@ -79,19 +91,24 @@ export class GameOverScreen implements Screen {
         } else term.print(tx, 9 + i, l, i === TOMBSTONE.length - 1 ? 'green' : 'lightGray');
       });
     }
-    if (this.rank >= 0) term.printCenter(SCREEN_ROWS - 4, `Novo recorde: ${this.rank + 1}º lugar!`, Math.floor(time / 300) % 2 ? 'gold' : 'yellow');
+    if (this.rank >= 0) term.printCenter(SCREEN_ROWS - 5, `Novo recorde: ${this.rank + 1}º lugar!`, Math.floor(time / 300) % 2 ? 'gold' : 'yellow');
+    if (this.game.challenge) {
+      const won = computeScore(this.game).total > this.game.challenge.target;
+      term.printCenter(SCREEN_ROWS - 4, won ? `Desafio vencido! Você superou ${this.game.challenge.target} pontos.` : `Desafio perdido: a meta era ${this.game.challenge.target} pontos.`, won ? 'lightGreen' : 'lightRed');
+    }
     if (this.elapsed > 600) term.printCenter(SCREEN_ROWS - 2, '[qualquer tecla] continuar', 'darkGray');
   }
 
   private renderSummary(term: Terminal): void {
     term.box(0, 0, SCREEN_COLS, SCREEN_ROWS, 'darkGray', 'Resumo da partida');
     const lines = morgueLines(this.game).flatMap((l) => (l.length > SCREEN_COLS - 6 ? wrapText(l, SCREEN_COLS - 6) : [l]));
-    const page = SCREEN_ROWS - 4;
+    const page = SCREEN_ROWS - 6;
     this.scroll = Math.min(this.scroll, Math.max(0, lines.length - page));
     lines.slice(this.scroll, this.scroll + page).forEach((l, i) => {
       const color = i + this.scroll === 0 ? 'white' : l.startsWith('PONTUAÇÃO') ? 'gold' : l.endsWith(':') ? 'yellow' : 'lightGray';
       term.print(3, 2 + i, l, color, 'black', SCREEN_COLS - 6);
     });
-    term.print(3, SCREEN_ROWS - 1, ' [↑/↓] rolar · [x] exportar morgue (.txt) · [qualquer tecla] recordes ', 'darkGray');
+    term.print(3, SCREEN_ROWS - 3, `Desafie um amigo com este código: {yellow}${this.code()}{/} ${this.copied ? '{lightGreen}(copiado!){/}' : '{darkGray}[c] copiar{/}'}`, 'lightGray');
+    term.print(3, SCREEN_ROWS - 1, ' [↑/↓] rolar · [x] exportar morgue (.txt) · [c] copiar código · [qualquer tecla] recordes ', 'darkGray');
   }
 }

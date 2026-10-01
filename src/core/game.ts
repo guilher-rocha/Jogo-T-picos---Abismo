@@ -75,6 +75,10 @@ export interface Game {
   lavaWarned?: string;
   /** Data do desafio diário (seed do dia), se for o caso. */
   daily?: string;
+  /** Desafio de um amigo: pontuação a superar. */
+  challenge?: { target: number };
+  /** Dicas para iniciantes já mostradas. */
+  hintsShown?: string[];
   /** Preenchido quando a partida termina. */
   over?: { won: boolean; cause: string; escaped?: boolean };
 }

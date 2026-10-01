@@ -24,7 +24,14 @@ export class CreationScreen implements Screen {
   private rollSeed: number | undefined;
   private nameRng = new RNG(freshSeed());
 
-  constructor(private app: App, private onStart: (spec: HeroSpec) => void) {}
+  constructor(private app: App, private onStart: (spec: HeroSpec) => void, private fixed?: { raceId: string; classId: string; title: string }) {
+    if (fixed) {
+      this.race = Math.max(0, RACES.findIndex((r) => r.id === fixed.raceId));
+      this.cls = Math.max(0, CLASSES.findIndex((c) => c.id === fixed.classId));
+      this.step = 'name';
+      this.name = randomName(this.nameRng, fixed.raceId);
+    }
+  }
 
   onKey(k: KeyInput): void {
     switch (this.step) {
@@ -39,7 +46,10 @@ export class CreationScreen implements Screen {
         break;
       case 'name':
         if (k.key === 'Enter' && this.name.trim()) this.step = 'confirm';
-        else if (k.key === 'Escape') this.step = 'class';
+        else if (k.key === 'Escape') {
+          if (this.fixed) this.app.showTitle();
+          else this.step = 'class';
+        }
         else if (k.key === 'Tab') this.name = randomName(this.nameRng, RACES[this.race].id);
         else if (k.key === 'Backspace') this.name = this.name.slice(0, -1);
         else if (k.key.length === 1 && /[\p{L}\p{N} '-]/u.test(k.key) && this.name.length < 16) this.name += k.key;
@@ -70,7 +80,8 @@ export class CreationScreen implements Screen {
   }
 
   render(term: Terminal): void {
-    term.box(0, 0, SCREEN_COLS, SCREEN_ROWS, 'darkGray', 'Novo personagem');
+    term.box(0, 0, SCREEN_COLS, SCREEN_ROWS, 'darkGray', this.fixed?.title ?? 'Novo personagem');
+    if (this.fixed) term.print(3, 3, `Personagem do desafio: {white}${RACES[this.race].name} ${CLASSES[this.cls].name}{/}`, 'lightGray');
     const steps: [Step, string][] = [['race', 'Raça'], ['class', 'Classe'], ['name', 'Nome'], ['confirm', 'Confirmar']];
     let sx = 3;
     for (const [id, label] of steps) {

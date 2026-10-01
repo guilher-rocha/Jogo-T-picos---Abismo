@@ -14,8 +14,10 @@ export interface App {
   newGame: () => void;
   hasSave: () => boolean;
   continueGame: () => void;
-  /** Desafio diário (seed do dia) — pode não estar disponível. */
+  /** Desafio diário (seed do dia). */
   dailyChallenge: () => void;
+  /** Aceitar o desafio de um amigo (código). */
+  acceptChallenge: () => void;
   showOptions: () => void;
   showHighScores: (cycle: boolean, highlight?: number) => void;
   startAttract: () => void;

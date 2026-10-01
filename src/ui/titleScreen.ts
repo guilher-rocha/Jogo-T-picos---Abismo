@@ -35,6 +35,7 @@ export class TitleScreen implements Screen {
       { label: 'Novo jogo', enabled: () => true, run: () => app.newGame() },
       { label: 'Continuar', enabled: () => app.hasSave(), run: () => app.continueGame() },
       { label: 'Desafio diário', enabled: () => app.features.daily, run: () => app.dailyChallenge() },
+      { label: 'Aceitar desafio', enabled: () => app.features.daily, run: () => app.acceptChallenge() },
       { label: 'Recordes', enabled: () => true, run: () => app.showHighScores(false) },
       { label: 'Opções', enabled: () => app.features.options, run: () => app.showOptions() },
       { label: 'Como jogar', enabled: () => true, run: () => this.help() },
@@ -67,7 +68,7 @@ export class TitleScreen implements Screen {
       this.entries[this.cursor].run();
       return;
     }
-    const i = 'abcdefg'.indexOf(k.key);
+    const i = 'abcdefgh'.indexOf(k.key);
     if (i >= 0 && i < n && this.entries[i].enabled()) this.entries[i].run();
   }
 
@@ -129,11 +130,11 @@ export class TitleScreen implements Screen {
     term.set(gx + DUNGEON_GATE[5].indexOf('>'), 15, '>', Math.floor(time / 500) % 2 ? 'white' : 'yellow');
 
     // Menu
-    const my = 18;
+    const my = 17;
     this.entries.forEach((e, i) => {
       const sel = i === this.cursor;
       const enabled = e.enabled();
-      const text = `${'abcdefg'[i]}) ${e.label}`;
+      const text = `${'abcdefgh'[i]}) ${e.label}`;
       const x = Math.floor(SCREEN_COLS / 2) - 9;
       term.print(x, my + i, sel ? `▶ ${text}` : `  ${text}`, !enabled ? 'darkGray' : sel ? 'yellow' : 'lightGray');
     });
