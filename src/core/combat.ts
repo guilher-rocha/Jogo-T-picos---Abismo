@@ -4,7 +4,10 @@ import { collectBonuses } from './bonuses';
 import type { StatusId } from './status';
 import { addStatus, hasStatus, isIncapacitated, removeStatus, statusDefense } from './status';
 import { recalcPlayer, xpForLevel } from './hero';
-import { isEquipped, takeFromInventory } from './inventory';
+import { equipped, isEquipped, takeFromInventory } from './inventory';
+import { itemBase } from '../data/items';
+import type { MeleeStyle } from './events';
+import { memberFalls } from './party';
 import { itemName } from './itemText';
 import { teleportActor } from './spells';
 import { generateItem } from '../gen/items';
@@ -33,6 +36,10 @@ export interface AttackOptions {
 export function meleeAttack(game: Game, attacker: Actor, defender: Actor, opts: AttackOptions = {}): void {
   // Ataque furtivo do Ladino: alvo dormindo ou distraído (não está caçando você).
   const sneak = attacker.isPlayer && game.hero.classId === 'rogue' && !defender.isPlayer && defender.ai.state !== 'hunting';
+  emit(game, {
+    type: 'melee', x: attacker.x, y: attacker.y, tx: defender.x, ty: defender.y,
+    style: meleeStyle(game, attacker), element: attacker.attacks[0]?.element, heavy: (opts.damageMult ?? 1) > 1 || sneak,
+  });
   for (const atk of attacker.attacks) {
     if (defender.hp <= 0) break;
     resolveAttack(game, attacker, defender, atk, (opts.damageMult ?? 1) * (sneak ? 3 : 1), sneak);
@@ -42,6 +49,26 @@ export function meleeAttack(game: Game, attacker: Actor, defender: Actor, opts: 
     defender.ai.state = 'hunting';
     defender.ai.lastSeen = { x: attacker.x, y: attacker.y };
   }
+}
+
+const VERB_STYLE: Record<string, MeleeStyle> = {
+  morde: 'bite', arranha: 'claw', pica: 'pierce', esmaga: 'blunt', golpeia: 'slash', acerta: 'slash', soca: 'fist',
+};
+const BLUNT_WEAPONS = new Set(['club', 'mace', 'flail', 'quarterstaff']);
+const PIERCE_WEAPONS = new Set(['dagger', 'rapier', 'spear', 'dart']);
+
+/** Estilo visual do golpe: pela arma do jogador ou pelo verbo do ataque do monstro. */
+export function meleeStyle(game: Game, a: Actor): MeleeStyle {
+  if (a.isPlayer) {
+    const w = equipped(game, 'weapon');
+    if (!w) return 'fist';
+    const b = itemBase(w.baseId);
+    if (b.category === 'launcher' || BLUNT_WEAPONS.has(b.id)) return 'blunt';
+    if (PIERCE_WEAPONS.has(b.id)) return 'pierce';
+    return 'slash';
+  }
+  const verb = a.attacks[0]?.verb ?? '';
+  return VERB_STYLE[verb] ?? 'touch';
 }
 
 /** Ataque à distância (projétil já chegou ao alvo). */
@@ -177,6 +204,7 @@ export function damage(game: Game, target: Actor, amount: number, source?: Actor
   emit(game, { type: 'death', x: target.x, y: target.y, isPlayer: target.isPlayer });
   if (target.isPlayer) {
     const cause = source ? `morto por ${aName(source)}` : 'morto';
+    if (game.party && memberFalls(game, target, cause)) return;
     game.over = { won: false, cause };
     message(game, 'Você morre...', 'red');
     return;

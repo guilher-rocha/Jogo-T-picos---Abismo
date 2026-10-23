@@ -645,6 +645,57 @@ Ordem sugerida por **valor / esforço**. O grupo escolhe quantas implementar.
 **4.14 Extras de conteúdo (se sobrar tempo)**
 - Lojas, altares/religião simples, companheiro animal do Patrulheiro, servos do Necromante, desbloqueáveis, modos de dificuldade, conquistas.
 
+### ETAPA 5 — Multijogador cooperativo em rede local *(pedido extra, depois da versão com sprites — implementada)*
+
+**Objetivo:** 2 a 4 pessoas na mesma rede (Wi-Fi/cabo) descem juntas a mesma masmorra, cada uma com o seu herói.
+
+**Decisões de projeto**
+- **Cooperativo, não competitivo:** todos contra a masmorra. Combina com um roguelike por turnos se cada rodada esperar todos
+  os jogadores ("turnos simultâneos"): quem já agiu vê "Esperando Ana...".
+- **Servidor autoritativo em Node, navegadores como clientes:** a lógica (`src/core`, `src/ai`, `src/gen`, `src/data`) não depende
+  de DOM, então o servidor roda exatamente as mesmas regras. Os navegadores só mandam ações e desenham o estado que recebem.
+  *Por que não um navegador como anfitrião?* Aba em segundo plano congela timers e travaria a partida de todos; P2P (WebRTC)
+  exigiria trocar códigos de conexão à mão. Um servidor na rede local é um comando só.
+- **Transporte:** WebSocket (`ws`) no mesmo endereço que serve o jogo: `npm run lan` compila tudo, sobe `http://<IP>:8080` e mostra
+  os IPs da máquina para os amigos abrirem no navegador. Só rede local (sem internet, sem contas).
+- **Perspectiva (o truque que evita reescrever o núcleo):** o núcleo inteiro fala de "o jogador" (`game.player`/`game.hero`,
+  ~260 usos). Em vez de reescrevê-lo, `game.party` guarda todos os heróis e o servidor troca a perspectiva antes de cada passo:
+  o herói que age; para um monstro, o herói mais próximo (a IA persegue e ataca quem está perto). A visão (`map.visible`) é por
+  herói; a memória do mapa (`explored`) é do grupo.
+- **Turnos:** o sistema de energia continua; quando um herói pode agir, o mundo espera a ação dele (cada jogador pode deixar uma
+  ação na fila). Monstros só agem quando nenhum herói está pronto — igual ao jogo solo.
+- **Regras de grupo:** a escada leva o grupo todo; herói caído vira espectador (câmera num aliado) e volta com metade da vida no
+  próximo andar; a partida acaba quando todos caem (ou alguém vence); aliados não se atacam — trocam de lugar.
+  Mensagens levam o nome de quem viveu ("[Ana] Você acerta o rato.").
+- **Fora do escopo desta etapa:** entrar no meio da partida, salvar partida multijogador, jogar pela internet; correr,
+  autoexplorar e descansar automáticos (viram um passo só — dependem de resposta imediata do jogo).
+
+**5.1 Núcleo de grupo** (`src/core/party.ts`)
+- Membros do grupo, troca de perspectiva, laço de turnos com vários heróis, IA mirando o herói mais próximo, regras de escada,
+  queda, morte, reviver e troca de lugar. Mensagens marcadas com o herói.
+- *Aceite:* testes no Node com 2–3 heróis: a rodada espera todos; monstro ataca o herói mais perto; um herói cair não encerra a
+  partida; o grupo desce junto e o caído volta; o jogo solo continua idêntico (testes e simulação com bot passam).
+
+**5.2 Sala e protocolo** (`src/net/`)
+- Mensagens JSON: entrar (nome/raça/classe), pronto, iniciar (líder = primeiro a entrar), ação, chat; do servidor: sala, estado
+  (só o andar atual + o grupo, na perspectiva de cada jogador), chat, erro. Reconexão pelo mesmo navegador; jogador desconectado
+  tem o herói esperando (não trava os outros).
+- *Aceite:* testes da sala com clientes falsos (sem rede): entrar, iniciar, agir em ordem, desconectar, reconectar.
+
+**5.3 Servidor** (`server/lan.ts`)
+- HTTP servindo o jogo compilado + WebSocket em `/ws`; mostra os IPs; `npm run lan`.
+- *Aceite:* sobe com um comando, aceita conexões de outros computadores da rede.
+
+**5.4 Cliente**
+- "Multijogador (rede local)" no título → criação do herói → sala de espera (jogadores, pronto, iniciar) → jogo.
+- Tela do jogo em modo rede: ação vai para o servidor; estado chega e anima (sons e efeitos iguais ao solo); aliados desenhados
+  com nome e cor; painel do grupo (vida de cada um, de quem é a vez); chat; fim de partida volta para a sala.
+- *Aceite:* dois navegadores jogando juntos.
+
+**5.5 Teste ponta a ponta**
+- Servidor real + dois navegadores headless (puppeteer): sala, início, os dois andando, luta, descida de escada; screenshots
+  dos dois lados para revisar.
+
 ---
 
 ## 7. Estratégia de testes e balanceamento

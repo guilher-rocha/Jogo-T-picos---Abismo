@@ -8,8 +8,9 @@ import { bresenham } from './fov';
 import type { Item } from './item';
 import { addItem } from './item';
 import { equipped, takeFromInventory } from './inventory';
-import { itemName } from './itemText';
+import { itemColor, itemName } from './itemText';
 import { itemBase } from '../data/items';
+import { lookOf } from './identify';
 import { damage, hitChance } from './combat';
 import { statMod } from './hero';
 import { capitalize, theName } from './text';
@@ -52,7 +53,7 @@ function resolveShot(game: Game, actor: Actor, target: Point, shot: Shot): void 
   const { path, hit } = traceProjectile(game, actor, target, shot.range);
   const base = itemBase(shot.item.baseId);
   const glyph = base.category === 'potion' ? '!' : projectileGlyph(target.x - actor.x, target.y - actor.y);
-  emit(game, { type: 'projectile', path, glyph, color: base.color });
+  emit(game, { type: 'projectile', path, glyph, color: itemColor(shot.item, game), item: base.id, from: { x: actor.x, y: actor.y }, look: lookOf(game, base.id) });
   const missile = itemName(game, { ...shot.item, quantity: 1 }, 'the');
   let broke = false;
   if (hit) {
@@ -73,6 +74,8 @@ function resolveShot(game: Game, actor: Actor, target: Point, shot: Shot): void 
   // Poções se quebram (e afetam quem foi atingido); o resto cai no chão onde parou.
   if (base.category === 'potion') {
     message(game, `${capitalize(missile)} se espatifa!`, 'lightGray');
+    const at = hit ?? path[path.length - 1] ?? { x: actor.x, y: actor.y };
+    emit(game, { type: 'shatter', x: at.x, y: at.y, color: itemColor(shot.item, game) });
     if (hit && hit.hp > 0 && base.effect) potionEffect(game, hit, base.effect);
     return;
   }

@@ -85,7 +85,7 @@ export function castSpell(game: Game, caster: Actor, spellId: string, target?: P
 
 /** Aplica um efeito mágico (magia, varinha, pergaminho) a partir do conjurador. */
 export function invokeEffect(game: Game, caster: Actor, spell: SpellDef, target?: Point): Actor[] {
-  emit(game, { type: 'spell', color: spell.color });
+  emit(game, { type: 'spell', color: spell.color, x: caster.x, y: caster.y, element: spellElement(spell) });
   const affected: Actor[] = [];
   switch (spell.shape) {
     case 'self':
@@ -100,7 +100,9 @@ export function invokeEffect(game: Game, caster: Actor, spell: SpellDef, target?
         break;
       }
       const { path, hits } = trace(game, caster, target, spell.range ?? 10, spell.shape === 'beam');
-      emit(game, spell.shape === 'bolt' ? { type: 'projectile', path, glyph: '*', color: spell.color } : { type: 'bolt', path, color: spell.color });
+      const from = { x: caster.x, y: caster.y };
+      const element = spellElement(spell);
+      emit(game, spell.shape === 'bolt' ? { type: 'projectile', path, glyph: '*', color: spell.color, from, element } : { type: 'bolt', path, color: spell.color, from, element });
       for (const h of hits) {
         affected.push(h);
         applyToTarget(game, caster, h, spell);
@@ -111,9 +113,9 @@ export function invokeEffect(game: Game, caster: Actor, spell: SpellDef, target?
       if (!target) break;
       const { path, hits } = trace(game, caster, target, spell.range ?? 10, false);
       const center = hits[0] ? { x: hits[0].x, y: hits[0].y } : path[path.length - 1] ?? { x: caster.x, y: caster.y };
-      emit(game, { type: 'projectile', path, glyph: '*', color: spell.color });
+      emit(game, { type: 'projectile', path, glyph: '*', color: spell.color, from: { x: caster.x, y: caster.y }, element: spellElement(spell) });
       const r = spell.radius ?? 1;
-      emit(game, { type: 'explosion', x: center.x, y: center.y, radius: r, color: spell.color });
+      emit(game, { type: 'explosion', x: center.x, y: center.y, radius: r, color: spell.color, element: spellElement(spell) });
       const victims = [game.player, ...level(game).actors].filter((a) => Math.max(Math.abs(a.x - center.x), Math.abs(a.y - center.y)) <= r && a !== caster);
       for (const v of victims) {
         affected.push(v);
@@ -129,6 +131,14 @@ function turnsOf(game: Game, spell: SpellDef, fallback: string): number {
   return game.rng.combat.roll(spell.duration ?? fallback);
 }
 
+/**
+ * "Elemento visual" de uma magia: o elemento do dano ou, para magias de efeito, o próprio efeito
+ * (sono, lentidão, medo...). A interface escolhe a animação por ele.
+ */
+export function spellElement(spell: SpellDef): string {
+  return spell.effect === 'damage' ? spell.element ?? 'arcane' : spell.effect;
+}
+
 /** Teleporta um ator para uma casa livre aleatória (longe, se possível). */
 export function teleportActor(game: Game, a: Actor, maxDist?: number): void {
   const map = level(game).map;
@@ -139,9 +149,14 @@ export function teleportActor(game: Game, a: Actor, maxDist?: number): void {
     if (!isWalkable(map, x, y) || actorAt(game, x, y)) continue;
     const d = Math.max(Math.abs(x - a.x), Math.abs(y - a.y));
     if (maxDist !== undefined ? d > maxDist || d < 2 : d < 10 && tries < 200) continue;
+    const from = { x: a.x, y: a.y };
     a.x = x;
     a.y = y;
     if (a.isPlayer) refreshFov(game);
+    // Só anima se o jogador vê a partida ou a chegada.
+    if (a.isPlayer || map.visible[idx(map, from.x, from.y)] || map.visible[idx(map, x, y)]) {
+      emit(game, { type: 'teleport', x: from.x, y: from.y, tx: x, ty: y });
+    }
     return;
   }
 }
@@ -149,6 +164,9 @@ export function teleportActor(game: Game, a: Actor, maxDist?: number): void {
 function applyToTarget(game: Game, caster: Actor, target: Actor, spell: SpellDef): void {
   const name = capitalize(theName(target));
   const hostile = !target.isPlayer && caster.isPlayer;
+  if (spell.effect !== 'teleport' && spell.effect !== 'blink' && spell.effect !== 'detect' && spell.effect !== 'mapping' && spell.effect !== 'heal') {
+    emit(game, { type: 'spellHit', x: target.x, y: target.y, effect: spell.effect, element: spell.element, color: spell.color });
+  }
   switch (spell.effect) {
     case 'damage': {
       const holyBonus = spell.element === 'holy' && target.flags.includes('undead') ? 2 : 1;
@@ -234,7 +252,7 @@ function dig(game: Game, caster: Actor, target: Point, range: number): void {
     if (t === Tile.Wall || t === Tile.SecretDoor || t === Tile.Fungus || t === Tile.DoorLocked || t === Tile.DoorClosed) setTile(map, p.x, p.y, Tile.Corridor);
     path.push(p);
   }
-  emit(game, { type: 'bolt', path, color: 'brown' });
+  emit(game, { type: 'bolt', path, color: 'brown', from: { x: caster.x, y: caster.y }, element: 'earth' });
   message(game, 'A rocha se desfaz diante de você!', 'brown');
   refreshFov(game);
 }

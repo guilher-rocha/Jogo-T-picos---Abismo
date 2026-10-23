@@ -13,6 +13,7 @@ import { createItem } from './item';
 import type { Item } from './item';
 import { createIdState, learn } from './identify';
 import { addToInventory, equip, equipped } from './inventory';
+import { partyArrives } from './party';
 
 /** Escolhas feitas na criação do personagem. */
 export interface HeroSpec {
@@ -107,4 +108,6 @@ export function enterLevel(game: Game, depth: number, arrive: 'up' | 'down'): vo
   }
   // Explorar mais fundo também dá experiência.
   if (deeper) gainXp(game, 5 * depth);
+  // Multijogador: os outros heróis chegam junto (e os caídos voltam).
+  if (game.party) partyArrives(game, game.player);
 }

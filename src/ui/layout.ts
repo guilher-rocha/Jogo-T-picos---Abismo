@@ -15,5 +15,11 @@ export const MAP_Y = 3;
 export const SIDE_X = 81;
 export const SIDE_W = 19;
 
+/** Minimapa: últimas linhas do painel lateral (em células). */
+export const MINI_X = SIDE_X;
+export const MINI_Y = 24;
+export const MINI_W = SIDE_W;
+export const MINI_H = 3;
+
 /** Rodapé. */
 export const FOOT_Y = 28;

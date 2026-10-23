@@ -47,6 +47,8 @@ export interface KeyInput {
   shift: boolean;
   ctrl: boolean;
   alt: boolean;
+  /** Repetição automática de uma tecla segurada (o navegador manda várias por segundo). */
+  repeat?: boolean;
 }
 
 const VI_DIRS: Record<string, [number, number]> = {
@@ -139,6 +141,7 @@ export const KEY_HELP: [string, string][] = [
   ['A', 'habilidades de classe'],
   ['C', 'ficha do personagem (e pontos de atributo)'],
   ['I', 'itens descobertos (identificação)'],
+  ['v', 'tamanho dos sprites: automático / perto / longe'],
   ['M ou Ctrl+P', 'histórico de mensagens'],
   ['S', 'salvar e voltar ao título'],
   ['?', 'esta ajuda'],

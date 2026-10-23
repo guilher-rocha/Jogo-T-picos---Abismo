@@ -18,6 +18,10 @@ export interface App {
   dailyChallenge: () => void;
   /** Aceitar o desafio de um amigo (código). */
   acceptChallenge: () => void;
+  /** Multijogador em rede local: criar o herói e entrar na sala. */
+  multiplayer: () => void;
+  /** Multijogador: volta para a sala de espera (false se não há conexão ativa). */
+  backToLobby: () => boolean;
   showOptions: () => void;
   showHighScores: (cycle: boolean, highlight?: number) => void;
   startAttract: () => void;

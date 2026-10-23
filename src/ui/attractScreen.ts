@@ -13,7 +13,8 @@ import { randomName } from '../gen/names';
 import type { App } from './app';
 import { drawMap } from './mapView';
 import { drawMessages, drawSidebar } from './hud';
-import { playEvents } from './effects';
+import { playEvents, trackEvents } from './effects';
+import { SceneState } from './sceneState';
 import { FOOT_Y, SCREEN_COLS } from './layout';
 
 const STEP_MS = 90;
@@ -23,6 +24,8 @@ const DURATION_MS = 40000;
 export class AttractScreen implements Screen {
   private game: Game;
   private anims = new AnimationQueue();
+  private state = new SceneState();
+  private lastTime = 0;
   private acc = 0;
   private elapsed = 0;
   private deadFor = 0;
@@ -51,6 +54,7 @@ export class AttractScreen implements Screen {
     while (this.acc >= STEP_MS && !this.game.over) {
       this.acc -= STEP_MS;
       if (!playerAction(this.game, botAction(this.game))) playerAction(this.game, { type: 'wait' });
+      trackEvents(this.game, this.state, this.game.events);
       playEvents(this.anims, this.game.events);
     }
   }
@@ -60,10 +64,14 @@ export class AttractScreen implements Screen {
   }
 
   render(term: Terminal, time: number): void {
-    drawMap(term, this.game, time);
+    const dt = this.lastTime ? Math.min(100, Math.max(0, time - this.lastTime)) : 0;
+    this.lastTime = time;
+    this.state.speed = 2;
+    this.state.update(this.game, dt, term.view.tilesW, term.view.tilesH);
+    drawMap(term, this.game, this.state, time);
     this.anims.draw(term);
     drawMessages(term, this.game);
-    drawSidebar(term, this.game);
+    drawSidebar(term, this.game, time);
     const blink = Math.floor(time / 500) % 2 === 0;
     term.fill(0, FOOT_Y, SCREEN_COLS, 2);
     term.printCenter(FOOT_Y, '══  DEMONSTRAÇÃO  ══', blink ? 'yellow' : 'orange');

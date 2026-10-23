@@ -23,7 +23,8 @@ import { monsterSpecial } from './monsterSpecial';
 import { disarm, searchTraps, trapAt, triggerTrap } from './traps';
 import { damage, resistMult } from './combat';
 import { addStatus, removeStatus } from './status';
-import { gainXp } from './hero';
+import { gainXp, raiseStat } from './hero';
+import type { StatId } from './hero';
 import { createMonster } from './monster';
 import { monsterTemplate } from '../data/monsters';
 
@@ -52,7 +53,9 @@ export type Action =
   | { type: 'search' }
   | { type: 'special'; kind: MonsterSpecial }
   | { type: 'fountain' }
-  | { type: 'disarm'; dx: number; dy: number };
+  | { type: 'disarm'; dx: number; dy: number }
+  /** Gasta um ponto de atributo (ação livre: não passa o tempo). */
+  | { type: 'raiseStat'; stat: StatId };
 
 /**
  * Executa uma ação. Retorna a energia gasta (0 = ação inválida, não passa o tempo).
@@ -64,11 +67,15 @@ export function perform(game: Game, actor: Actor, action: Action): number {
     case 'attack': {
       const target = actorAt(game, actor.x + action.dx, actor.y + action.dy);
       if (!target || target === actor) return 0;
+      if (actor.isPlayer && target.isPlayer) return 0; // aliado (multijogador)
       meleeAttack(game, actor, target);
       return ACTION_COST;
     }
     case 'wait':
       return ACTION_COST;
+    case 'raiseStat':
+      if (actor.isPlayer) raiseStat(game, action.stat);
+      return 0;
     case 'cast':
       return castSpell(game, actor, action.spellId, action.tx !== undefined ? { x: action.tx, y: action.ty! } : undefined);
     case 'ability':
@@ -270,6 +277,16 @@ function doMove(game: Game, actor: Actor, dx: number, dy: number): number {
   const ny = actor.y + dy;
   const map = level(game).map;
   const other = actorAt(game, nx, ny);
+  if (other && actor.isPlayer && other.isPlayer) {
+    // Multijogador: esbarrar num aliado troca os dois de lugar.
+    other.x = actor.x;
+    other.y = actor.y;
+    actor.x = nx;
+    actor.y = ny;
+    const name = game.party?.members.find((m) => m.actor === other)?.name ?? 'seu aliado';
+    message(game, `Você troca de lugar com ${name}.`, 'darkGray');
+    return ACTION_COST;
+  }
   if (other) {
     // Monstros não se atacam entre si.
     if (actor.isPlayer || other.isPlayer) {

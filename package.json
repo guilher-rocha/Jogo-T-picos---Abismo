@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p server --noEmit",
     "test": "vitest run",
-    "sim": "vitest run tests/sim.test.ts"
+    "sim": "vitest run tests/sim.test.ts",
+    "lan": "npm run build && npm run lan:server --",
+    "lan:server": "esbuild server/lan.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/lan.mjs --log-level=warning && node dist-server/lan.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "puppeteer-core": "^23.11.1",

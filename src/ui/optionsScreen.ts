@@ -3,6 +3,7 @@ import type { Terminal } from '../engine/terminal';
 import type { KeyInput } from '../data/keymap';
 import { THEMES } from '../engine/themes';
 import type { App } from './app';
+import type { ZoomMode } from '../engine/renderer';
 import { SCREEN_COLS, SCREEN_ROWS } from './layout';
 
 export interface Settings {
@@ -10,12 +11,22 @@ export interface Settings {
   /** Volume dos efeitos, 0–10. */
   sfx: number;
   music: boolean;
+  /** Volume da música, 0–10. */
+  musicVol: number;
   /** Velocidade das animações: 0 = desligadas. */
   animSpeed: number;
   hints: boolean;
+  /** Tamanho dos sprites no mapa: automático, mais perto ou mais longe (tecla V no jogo). */
+  zoom: ZoomMode;
 }
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'classic', sfx: 5, music: true, animSpeed: 1, hints: true };
+export const DEFAULT_SETTINGS: Settings = { theme: 'classic', sfx: 5, music: true, musicVol: 6, animSpeed: 1, hints: true, zoom: 'auto' };
+
+const ZOOMS: { id: ZoomMode; name: string }[] = [
+  { id: 'auto', name: 'automático' },
+  { id: 'close', name: 'perto (sprites maiores)' },
+  { id: 'far', name: 'longe (vê mais do mapa)' },
+];
 
 const SPEEDS = [0, 0.5, 1, 2, 4];
 
@@ -42,13 +53,32 @@ export class OptionsScreen implements Screen {
         },
       },
       { label: 'Volume dos efeitos', value: () => `${'█'.repeat(s.sfx)}${'░'.repeat(10 - s.sfx)} ${s.sfx}`, change: (d) => (s.sfx = Math.max(0, Math.min(10, s.sfx + d))) },
-      { label: 'Música', value: () => (s.music ? 'ligada' : 'desligada'), change: () => (s.music = !s.music) },
+      {
+        label: 'Volume da música',
+        value: () => {
+          const v = s.music ? s.musicVol : 0;
+          return v ? `${'█'.repeat(v)}${'░'.repeat(10 - v)} ${v}` : 'desligada';
+        },
+        change: (d) => {
+          const v = Math.max(0, Math.min(10, (s.music ? s.musicVol : 0) + d));
+          s.musicVol = v;
+          s.music = v > 0;
+        },
+      },
       {
         label: 'Animações',
         value: () => (s.animSpeed === 0 ? 'desligadas' : `velocidade ×${s.animSpeed}`),
         change: (d) => {
           const i = SPEEDS.indexOf(s.animSpeed);
           s.animSpeed = SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, (i < 0 ? 2 : i) + d))];
+        },
+      },
+      {
+        label: 'Tamanho dos sprites',
+        value: () => ZOOMS.find((z) => z.id === s.zoom)?.name ?? s.zoom,
+        change: (d) => {
+          const i = ZOOMS.findIndex((z) => z.id === s.zoom);
+          s.zoom = ZOOMS[(Math.max(0, i) + d + ZOOMS.length) % ZOOMS.length].id;
         },
       },
       { label: 'Dicas para iniciantes', value: () => (s.hints ? 'sim' : 'não'), change: () => (s.hints = !s.hints) },

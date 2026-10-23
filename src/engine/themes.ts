@@ -48,8 +48,8 @@ const HIGH_CONTRAST: Palette = {
 
 export const THEMES: Theme[] = [
   CLASSIC_THEME,
-  { id: 'green', name: 'Fósforo verde (CRT)', palette: monochrome(80, 255, 110), font: CLASSIC_THEME.font, overlay: crtOverlay },
-  { id: 'amber', name: 'Âmbar (CRT)', palette: monochrome(255, 176, 40), font: CLASSIC_THEME.font, overlay: crtOverlay },
+  { id: 'green', name: 'Fósforo verde (CRT)', palette: monochrome(80, 255, 110), font: CLASSIC_THEME.font, overlay: crtOverlay, mono: [80, 255, 110] },
+  { id: 'amber', name: 'Âmbar (CRT)', palette: monochrome(255, 176, 40), font: CLASSIC_THEME.font, overlay: crtOverlay, mono: [255, 176, 40] },
   { id: 'contrast', name: 'Alto contraste', palette: HIGH_CONTRAST, font: CLASSIC_THEME.font },
   { id: 'typewriter', name: 'Máquina de escrever', palette: { ...CLASSIC_PALETTE }, font: '"Courier New", Courier, monospace' },
 ];

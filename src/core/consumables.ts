@@ -248,7 +248,7 @@ function scrollEffect(game: Game, effect: string, targetId?: number): boolean {
       return true;
     }
     case 'fireball_self': {
-      emit(game, { type: 'explosion', x: p.x, y: p.y, radius: 2, color: 'orange' });
+      emit(game, { type: 'explosion', x: p.x, y: p.y, radius: 2, color: 'orange', element: 'fire' });
       message(game, 'O pergaminho explode numa bola de fogo!', 'orange');
       for (const m of [...lvl.actors]) if (distance(m, p) <= 2) damage(game, m, game.rng.loot.roll('4d6'), p);
       damage(game, p, Math.round(game.rng.loot.roll('1d6') * (1 - (p.resist?.fire ?? 0) / 100)));

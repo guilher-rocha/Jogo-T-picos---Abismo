@@ -105,12 +105,12 @@ export class InventoryScreen implements Screen {
   }
 
   onKey(k: KeyInput): void {
-    if (k.key === 'Escape' || (k.key === 'i' && !this.onPick)) {
-      this.host.app.screens.pop();
+    // A letra de um item vem antes do atalho de fechar: um item na letra "i" tem de poder ser escolhido.
+    const item = this.items().find((i) => i.letter === k.key);
+    if (!item) {
+      if (k.key === 'Escape' || (k.key === 'i' && !this.onPick)) this.host.app.screens.pop();
       return;
     }
-    const item = this.items().find((i) => i.letter === k.key);
-    if (!item) return;
     this.host.app.screens.pop();
     if (this.onPick) {
       this.onPick(item);
@@ -133,7 +133,7 @@ export class InventoryScreen implements Screen {
         rows.push(`{darkGray}── ${CATEGORY_NAMES[cat]} ──{/}`);
         lastCat = cat;
       }
-      rows.push(`{yellow}${it.letter}){/} {${itemColor(it)}}${itemGlyph(it)}{/} ${itemName(game, it)}${equipTag(game, it)}`);
+      rows.push(`{yellow}${it.letter}){/} {${itemColor(it, game)}}${itemGlyph(it)}{/} ${itemName(game, it)}${equipTag(game, it)}`);
     }
     const h = Math.min(SCREEN_ROWS - 2, Math.max(6, rows.length + 5));
     term.box(x, 1, w, h, 'lightGray', this.title);
@@ -151,12 +151,12 @@ export class EquipmentScreen implements Screen {
   constructor(private host: ItemHost) {}
 
   onKey(k: KeyInput): void {
-    if (k.key === 'Escape' || k.key === 'e') {
-      this.host.app.screens.pop();
+    // As letras dos slots vêm antes do atalho de fechar ("e" é a letra das luvas).
+    const i = k.key.length === 1 ? 'abcdefghijkl'.indexOf(k.key) : -1;
+    if (i < 0 || i >= SLOT_ORDER.length) {
+      if (k.key === 'Escape' || k.key === 'e') this.host.app.screens.pop();
       return;
     }
-    const i = 'abcdefghijkl'.indexOf(k.key);
-    if (i < 0 || i >= SLOT_ORDER.length) return;
     const slot = SLOT_ORDER[i];
     this.host.app.screens.pop();
     if (equipped(this.host.game, slot)) this.host.act({ type: 'unequip', slot });
@@ -177,7 +177,7 @@ export class EquipmentScreen implements Screen {
     term.box(x, 2, w, SLOT_ORDER.length + 5, 'lightGray', 'Equipamento');
     SLOT_ORDER.forEach((slot, i) => {
       const it = equipped(game, slot);
-      term.print(x + 2, 4 + i, `{yellow}${'abcdefghijkl'[i]}){/} ${SLOT_NAMES[slot].padEnd(12)} ${it ? `{${itemColor(it)}}${itemName(game, it)}{/}` : '{darkGray}—{/}'}`, 'lightGray', 'black', w - 4);
+      term.print(x + 2, 4 + i, `{yellow}${'abcdefghijkl'[i]}){/} ${SLOT_NAMES[slot].padEnd(12)} ${it ? `{${itemColor(it, game)}}${itemName(game, it)}{/}` : '{darkGray}—{/}'}`, 'lightGray', 'black', w - 4);
     });
     term.print(x + 2, SLOT_ORDER.length + 5, '[letra] tira / equipa · [Esc] fecha', 'darkGray');
   }
@@ -234,7 +234,7 @@ export function pickupCommand(host: ItemHost): void {
     host.act({ type: 'pickup', itemId: items[0].id });
     return;
   }
-  const entries: MenuEntry[] = items.map((i) => ({ label: itemName(host.game, i), color: itemColor(i) }));
+  const entries: MenuEntry[] = items.map((i) => ({ label: itemName(host.game, i), color: itemColor(i, host.game) }));
   host.app.screens.push(new MenuScreen(host.app, 'Pegar o quê?', entries, (idx) => host.act({ type: 'pickup', itemId: items[idx].id })));
 }
 

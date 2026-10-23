@@ -14,6 +14,7 @@ import { pushMessage } from './log';
 import { updatePlayerFov } from './fov';
 import type { GameEvent } from './events';
 import { pushEvent } from './events';
+import type { Party } from './party';
 
 /** Um andar da masmorra: mapa + monstros. */
 export interface Level {
@@ -81,6 +82,8 @@ export interface Game {
   hintsShown?: string[];
   /** Preenchido quando a partida termina. */
   over?: { won: boolean; cause: string; escaped?: boolean };
+  /** Multijogador: todos os heróis do grupo (`player`/`hero` apontam para o da vez — ver core/party.ts). */
+  party?: Party;
 }
 
 export function createRngs(seed: number): GameRngs {
@@ -92,8 +95,13 @@ export function level(game: Game): Level {
   return game.levels[game.depth];
 }
 
-export function message(game: Game, text: string, color: Color = 'lightGray'): void {
-  pushMessage(game.log, text, color, game.turn);
+/**
+ * Adiciona uma mensagem ao registro. No multijogador ela é marcada com o herói da vez (`who`), para os
+ * outros verem de quem é ("[Ana] Você acerta o rato."); `who = null` marca como mensagem do grupo todo.
+ */
+export function message(game: Game, text: string, color: Color = 'lightGray', who?: number | null): void {
+  const tag = who === null ? undefined : who ?? (game.party ? game.player.id : undefined);
+  pushMessage(game.log, text, color, game.turn, tag);
 }
 
 /** Recalcula o campo de visão do jogador no andar atual. */
@@ -105,6 +113,9 @@ export function refreshFov(game: Game): void {
 /** Ajusta a causa da morte (ex.: "morreu de fome") se o jogador acabou de morrer. */
 export function setDeathCause(game: Game, cause: string): void {
   if (game.over && !game.over.won) game.over.cause = cause;
+  // Multijogador: o herói da vez caiu sem acabar a partida.
+  const m = game.party?.members.find((x) => x.actor === game.player);
+  if (m?.dead) m.cause = cause;
 }
 
 export function emit(game: Game, e: GameEvent): void {
@@ -117,7 +128,10 @@ export function newId(game: Game): number {
 
 /** Ator (jogador ou monstro) na posição, se houver. */
 export function actorAt(game: Game, x: number, y: number): Actor | undefined {
-  if (game.player.x === x && game.player.y === y) return game.player;
+  const party = game.party;
+  if (game.player.x === x && game.player.y === y && !(party && game.player.hp <= 0)) return game.player;
+  // Multijogador: os outros heróis vivos também ocupam casas.
+  if (party) for (const m of party.members) if (!m.dead && m.actor !== game.player && m.actor.x === x && m.actor.y === y) return m.actor;
   return level(game).actors.find((a) => a.x === x && a.y === y);
 }
 

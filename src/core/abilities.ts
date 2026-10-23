@@ -82,6 +82,7 @@ function run(game: Game, p: Actor, id: string, dx: number, dy: number): number {
         return 0;
       }
       message(game, 'Você gira a arma num ataque giratório!', 'orange');
+      emit(game, { type: 'whirl', x: p.x, y: p.y });
       for (const a of around) meleeAttack(game, p, a);
       return ACTION_COST;
     }
@@ -100,13 +101,14 @@ function run(game: Game, p: Actor, id: string, dx: number, dy: number): number {
         }
       }
       game.hero.cooldowns.hidden = game.turn + 8;
+      emit(game, { type: 'smoke', x: p.x, y: p.y });
       message(game, 'Você some nas sombras. Os inimigos perdem seu rastro.', 'darkGray');
       return ACTION_COST;
     }
     case 'turn_undead': {
       const undead = lvl.actors.filter((m) => hasFlag(m, 'undead') && distance(m, p) <= 6);
       message(game, 'Você ergue o símbolo sagrado e invoca a luz divina!', 'white');
-      emit(game, { type: 'explosion', x: p.x, y: p.y, radius: 3, color: 'white' });
+      emit(game, { type: 'explosion', x: p.x, y: p.y, radius: 3, color: 'white', element: 'holy' });
       if (!undead.length) message(game, 'Nada acontece.', 'darkGray');
       for (const m of undead) {
         const dmg = game.rng.combat.roll('2d6') + p.level;

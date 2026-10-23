@@ -2,7 +2,8 @@ import type { Screen } from '../engine/screens';
 import type { Terminal } from '../engine/terminal';
 import type { KeyInput } from '../data/keymap';
 import type { Game } from '../core/game';
-import { MAX_LEVEL, STAT_ABBR, STAT_IDS, STAT_NAME, raiseStat, statMod, xpForLevel } from '../core/hero';
+import type { Action } from '../core/actions';
+import { MAX_LEVEL, STAT_ABBR, STAT_IDS, STAT_NAME, statMod, xpForLevel } from '../core/hero';
 import { classById } from '../data/classes';
 import { raceById } from '../data/races';
 import { wrapText } from '../engine/terminal';
@@ -16,12 +17,20 @@ const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
 export class CharacterScreen implements Screen {
   readonly modal = true;
 
-  constructor(private app: App, private game: Game) {}
+  /**
+   * `source` devolve a partida atual (no multijogador ela é trocada a cada estado recebido);
+   * `act` executa a ação de gastar o ponto (local ou pelo servidor).
+   */
+  constructor(private app: App, private source: () => Game, private act: (a: Action) => boolean) {}
+
+  private get game(): Game {
+    return this.source();
+  }
 
   onKey(k: KeyInput): void {
     const i = 'abcde'.indexOf(k.key);
     if (i >= 0 && this.game.hero.statPoints > 0) {
-      raiseStat(this.game, STAT_IDS[i]);
+      this.act({ type: 'raiseStat', stat: STAT_IDS[i] });
       return;
     }
     if (k.key === 'Escape' || k.key === 'Enter' || k.key === 'C' || k.key === ' ') this.app.screens.pop();

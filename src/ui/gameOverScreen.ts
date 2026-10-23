@@ -1,3 +1,4 @@
+import { sound } from '../engine/sound';
 import type { Screen } from '../engine/screens';
 import type { Terminal } from '../engine/terminal';
 import type { KeyInput } from '../data/keymap';
@@ -7,8 +8,14 @@ import { morgueLines } from '../core/morgue';
 import { encodeChallenge } from '../core/challenge';
 import { wrapText } from '../engine/terminal';
 import type { App } from './app';
-import { GAME_OVER, TOMBSTONE, VICTORY } from './art';
+import { K } from '../gfx/keys';
+import { drawGraveScene } from './graveScene';
+import { drawHeroStage } from './heroStage';
 import { SCREEN_COLS, SCREEN_ROWS } from './layout';
+
+/** Janelas do fim de partida (em células): o logotipo em cima, a cena (lápide ou herói vitorioso) embaixo. */
+const LOGO_RECT = { cx: 14, cy: 1, cw: 72, ch: 6 };
+const SCENE_RECT = { cx: 30, cy: 8, cw: 40, ch: 13 };
 
 /**
  * Fim de partida em duas fases: "GAME OVER" + lápide (ou "VITÓRIA"), depois o resumo.
@@ -25,7 +32,9 @@ export class GameOverScreen implements Screen {
     return encodeChallenge({ seed: this.game.seed, raceId: this.game.hero.raceId, classId: this.game.hero.classId, score: computeScore(this.game).total });
   }
 
-  constructor(private app: App, private game: Game, private rank: number) {}
+  constructor(private app: App, private game: Game, private rank: number) {
+    sound.setMusicTheme(game.over?.won ? 'victory' : 'gameover');
+  }
 
   update(dt: number): void {
     this.elapsed += dt;
@@ -55,6 +64,8 @@ export class GameOverScreen implements Screen {
       this.copied = true;
       return;
     }
+    // Multijogador: todos voltam para a sala de espera para jogar de novo.
+    if (this.app.backToLobby()) return;
     this.app.showHighScores(false, this.rank);
   }
 
@@ -65,31 +76,21 @@ export class GameOverScreen implements Screen {
 
   private renderBanner(term: Terminal, time: number): void {
     const won = !!this.game.over?.won;
-    const art = won ? VICTORY : GAME_OVER;
-    const w = Math.max(...art.map((l) => l.length));
-    const x = Math.floor((SCREEN_COLS - w) / 2);
-    // O texto "cai" linha a linha no começo.
-    const shown = Math.min(art.length, Math.floor(this.elapsed / 120) + 1);
-    art.slice(0, shown).forEach((l, i) => term.print(x, 2 + i, l, won ? 'gold' : Math.floor(time / 400) % 2 ? 'red' : 'lightRed'));
     const h = this.game.hero;
     const score = computeScore(this.game).total;
+    // Logotipo em pixel art: surge aos poucos e um brilho passa pelas letras.
+    const { cx, cy, cw, ch } = LOGO_RECT;
+    term.icon(won ? K.ui('victory') : K.ui('gameover'), cx, cy, cw, ch, { frame: Math.floor(this.elapsed / 85) % 16, alpha: Math.min(1, this.elapsed / 500) });
     if (won) {
-      term.printCenter(10, `${h.name} conquistou o Coração do Abismo!`, 'yellow');
-      term.printCenter(12, this.game.over!.cause, 'lightGray');
-      term.printCenter(14, `${score} pontos`, 'gold');
-    } else if (this.elapsed > 700) {
-      const tx = Math.floor((SCREEN_COLS - TOMBSTONE[TOMBSTONE.length - 1].length) / 2);
-      const cause = wrapText(this.game.over?.cause ?? '', 22);
-      const text = [h.name, `nível ${h.level}`, ...cause, `no andar ${this.game.depth}`, `${score} pontos`];
-      let ti = 0;
-      TOMBSTONE.forEach((l, i) => {
-        if (l.includes('@')) {
-          const t = text[ti++] ?? '';
-          const inner = 24;
-          const pad = Math.floor((inner - t.length) / 2);
-          term.print(tx, 9 + i, l.replace('@' + ' '.repeat(23), ' '.repeat(pad) + t + ' '.repeat(Math.max(0, inner - pad - t.length))), 'lightGray');
-        } else term.print(tx, 9 + i, l, i === TOMBSTONE.length - 1 ? 'green' : 'lightGray');
-      });
+      drawHeroStage(term, SCENE_RECT, h.raceId, h.classId, time, { victory: true });
+      term.printCenter(22, `${h.name} conquistou o Coração do Abismo!`, 'yellow');
+      term.printCenter(23, this.game.over!.cause, 'lightGray');
+      term.printCenter(24, `${score} pontos`, 'gold');
+    } else {
+      drawGraveScene(term, SCENE_RECT, time);
+      term.printCenter(21, `{white}${h.name}{/} — nível ${h.level}`, 'lightGray');
+      wrapText(this.game.over?.cause ?? '', 70).slice(0, 2).forEach((l, i) => term.printCenter(22 + i, l, 'lightGray'));
+      term.printCenter(24, `no andar ${this.game.depth} · {gold}${score} pontos{/}`, 'lightGray');
     }
     if (this.rank >= 0) term.printCenter(SCREEN_ROWS - 5, `Novo recorde: ${this.rank + 1}º lugar!`, Math.floor(time / 300) % 2 ? 'gold' : 'yellow');
     if (this.game.challenge) {

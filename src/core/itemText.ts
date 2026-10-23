@@ -5,7 +5,8 @@ import { monsterTemplate } from '../data/monsters';
 import type { Color } from '../engine/colors';
 import { CATEGORY_GLYPH } from '../data/items';
 import { affixName } from './affixText';
-import { unknownName } from './identify';
+import { lookOf, unknownName } from './identify';
+import { LOOK_COLORS } from '../data/appearances';
 
 const RARITY_COLOR: Record<string, Color> = { common: 'white', magic: 'lightBlue', rare: 'yellow', legendary: 'orange' };
 
@@ -60,10 +61,16 @@ export function itemName(game: Game | undefined, item: Item, article: Article = 
   return `${gender === 'f' ? 'uma' : 'um'} ${full}`;
 }
 
-export function itemColor(item: Item): Color {
+/**
+ * Cor do item em textos e no modo ASCII. Com a partida em mãos, poções/varinhas/anéis/amuletos
+ * usam a cor da aparência sorteada (e não a do tipo verdadeiro, que entregaria a identificação).
+ */
+export function itemColor(item: Item, game?: Game): Color {
   const base = itemBase(item.baseId);
   if (item.baseId === 'corpse' && item.corpseOf) return monsterTemplate(item.corpseOf).color;
   if (item.rarity !== 'common' && item.identified) return RARITY_COLOR[item.rarity];
+  const look = game ? lookOf(game, item.baseId) : undefined;
+  if (look) return LOOK_COLORS[look.cat][look.look] ?? base.color;
   return base.color;
 }
 

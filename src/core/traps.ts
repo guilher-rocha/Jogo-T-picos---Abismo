@@ -74,7 +74,7 @@ export function triggerTrap(game: Game, trap: Trap): void {
       game.pendingFall = true;
       break;
     case 'fire': {
-      emit(game, { type: 'explosion', x: p.x, y: p.y, radius: 1, color: 'orange' });
+      emit(game, { type: 'explosion', x: p.x, y: p.y, radius: 1, color: 'orange', element: 'fire' });
       damage(game, p, Math.round(game.rng.loot.roll('3d6') * resistMult(p, 'fire')));
       addStatus(game, p, 'burning', 3, 1);
       break;

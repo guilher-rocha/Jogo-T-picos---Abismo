@@ -9,7 +9,8 @@ import { distance, inBounds } from '../core/map';
 import { bresenham } from '../core/fov';
 import { describeCell } from './describe';
 import type { App } from './app';
-import { MAP_X, MAP_Y, SCREEN_COLS } from './layout';
+import { SCREEN_COLS } from './layout';
+import { viewFocus } from './sceneState';
 
 export interface TargetOptions {
   /** 'aim' escolhe um alvo; 'look' só inspeciona. */
@@ -38,6 +39,7 @@ export class TargetScreen implements Screen {
 
   onKey(k: KeyInput): void {
     if (k.key === 'Escape') {
+      viewFocus.point = null;
       this.app.screens.pop();
       return;
     }
@@ -50,6 +52,7 @@ export class TargetScreen implements Screen {
     }
     const confirmKeys = ['Enter', 't', 'f', 'z', 'm', '.', ' '];
     if (this.opts.mode === 'aim' && confirmKeys.includes(k.key) && k.code !== 'Numpad5') {
+      viewFocus.point = null;
       this.app.screens.pop();
       if (this.cursor.x !== this.game.player.x || this.cursor.y !== this.game.player.y) this.opts.onConfirm?.(this.cursor);
       return;
@@ -67,16 +70,24 @@ export class TargetScreen implements Screen {
   render(term: Terminal, time: number): void {
     const map = level(this.game).map;
     const p = this.game.player;
-    if (this.opts.mode === 'aim') {
-      const line = bresenham(p.x, p.y, this.cursor.x, this.cursor.y).slice(1);
-      line.forEach((c, i) => {
-        if (!inBounds(map, c.x, c.y)) return;
-        const inRange = this.opts.range === undefined || i < this.opts.range;
-        term.setBg(MAP_X + c.x, MAP_Y + c.y, inRange ? 'darkBlue' : 'darkRed');
-      });
+    viewFocus.point = this.cursor;
+    const scene = term.scene;
+    if (scene) {
+      if (this.opts.mode === 'aim') {
+        // Trajetória: azul dentro do alcance, vermelha fora.
+        const line = bresenham(p.x, p.y, this.cursor.x, this.cursor.y).slice(1);
+        line.forEach((c, i) => {
+          if (!inBounds(map, c.x, c.y)) return;
+          const inRange = this.opts.range === undefined || i < this.opts.range;
+          const color = inRange ? '#5a8cff' : '#e04848';
+          scene.rect(c.x, c.y, 1, 1, color, 0.22);
+          scene.ell(c.x + 0.5, c.y + 0.5, 0.1, 0.1, color, 0.95);
+        });
+      }
+      const blink = Math.floor(time / 300) % 2 === 0;
+      scene.rect(this.cursor.x, this.cursor.y, 1, 1, '#ffd24a', blink ? 0.2 : 0.08);
+      scene.box(this.cursor.x, this.cursor.y, 1, 1, blink ? '#ffd24a' : '#a08a40', 1);
     }
-    const blink = Math.floor(time / 300) % 2 === 0;
-    term.setBg(MAP_X + this.cursor.x, MAP_Y + this.cursor.y, blink ? 'brown' : 'darkGray');
 
     term.fill(0, 0, SCREEN_COLS, 3);
     term.print(1, 0, this.opts.prompt, 'yellow');

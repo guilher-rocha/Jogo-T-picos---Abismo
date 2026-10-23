@@ -38,7 +38,7 @@ export function monsterSpecial(game: Game, m: Actor, kind: MonsterSpecial): numb
         path.push(pt);
         if (!isTransparent(map, pt.x, pt.y) || (pt.x === p.x && pt.y === p.y)) break;
       }
-      emit(game, { type: 'bolt', path, color: el === 'fire' ? 'orange' : 'yellow' });
+      emit(game, { type: 'breath', path, from: { x: m.x, y: m.y }, element: el });
       message(game, `${who} ${el === 'fire' ? 'cospe uma torrente de fogo' : 'solta um relâmpago pela boca'}!`, 'lightRed');
       const dmg = Math.round(Math.max(6, m.hp / 4) * resistMult(p, el));
       message(game, `Você é atingido pelo sopro (${dmg}).`, 'lightRed');
@@ -56,7 +56,7 @@ export function monsterSpecial(game: Game, m: Actor, kind: MonsterSpecial): numb
     }
     case 'shoot': {
       const { path, hit } = traceProjectile(game, m, p, 10);
-      emit(game, { type: 'projectile', path, glyph: projectileGlyph(p.x - m.x, p.y - m.y), color: 'lightGray' });
+      emit(game, { type: 'projectile', path, glyph: projectileGlyph(p.x - m.x, p.y - m.y), color: 'lightGray', item: 'bolt', from: { x: m.x, y: m.y } });
       if (hit) rangedAttack(game, m, hit, { verb: 'acerta', damage: `1d6+${Math.floor(m.level / 2)}` }, 'o virote');
       else message(game, `${who} dispara, mas erra feio.`, 'darkGray');
       return ACTION_COST;

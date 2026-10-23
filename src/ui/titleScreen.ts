@@ -1,23 +1,15 @@
+import { sound } from '../engine/sound';
 import type { Screen } from '../engine/screens';
 import type { Terminal } from '../engine/terminal';
-import type { Color } from '../engine/colors';
 import type { KeyInput } from '../data/keymap';
 import { KEY_HELP } from '../data/keymap';
 import type { App } from './app';
-import { LOGO, DUNGEON_GATE } from './art';
+import { drawTitleScene, TITLE_RECT } from './titleArt';
 import { SCREEN_COLS, SCREEN_ROWS } from './layout';
 import { TextWindow } from './textWindow';
 
 /** Tempo parado na tela de título até começar a demonstração (ms). */
 export const ATTRACT_DELAY = 20000;
-
-const FLAME: Color[] = ['red', 'orange', 'yellow', 'orange', 'lightRed'];
-
-/** Pseudoaleatório só para efeitos visuais (não afeta o jogo). */
-function flicker(t: number, salt: number): number {
-  const x = Math.sin(Math.floor(t / 110) * 12.9898 + salt * 78.233) * 43758.5453;
-  return x - Math.floor(x);
-}
 
 interface Entry {
   label: string;
@@ -36,6 +28,7 @@ export class TitleScreen implements Screen {
       { label: 'Continuar', enabled: () => app.hasSave(), run: () => app.continueGame() },
       { label: 'Desafio diário', enabled: () => app.features.daily, run: () => app.dailyChallenge() },
       { label: 'Aceitar desafio', enabled: () => app.features.daily, run: () => app.acceptChallenge() },
+      { label: 'Multijogador (rede local)', enabled: () => true, run: () => app.multiplayer() },
       { label: 'Recordes', enabled: () => true, run: () => app.showHighScores(false) },
       { label: 'Opções', enabled: () => app.features.options, run: () => app.showOptions() },
       { label: 'Como jogar', enabled: () => true, run: () => this.help() },
@@ -45,6 +38,7 @@ export class TitleScreen implements Screen {
 
   onEnter(): void {
     this.idle = 0;
+    sound.setMusicTheme('title');
     if (!this.entries[this.cursor].enabled()) this.cursor = 0;
   }
 
@@ -68,7 +62,7 @@ export class TitleScreen implements Screen {
       this.entries[this.cursor].run();
       return;
     }
-    const i = 'abcdefgh'.indexOf(k.key);
+    const i = 'abcdefghij'.indexOf(k.key);
     if (i >= 0 && i < n && this.entries[i].enabled()) this.entries[i].run();
   }
 
@@ -94,7 +88,7 @@ export class TitleScreen implements Screen {
 
   private credits(): void {
     this.app.screens.push(new TextWindow(this.app, 'Créditos', [
-      '{yellow}ABISMO{/} — um roguelike em ASCII',
+      '{yellow}ABISMO{/} — um roguelike em pixel art',
       '',
       'Inspirado em Rogue (1980), NetHack e Angband.',
       'Feito em TypeScript + Canvas, rodando no navegador.',
@@ -102,39 +96,22 @@ export class TitleScreen implements Screen {
       'Desenvolvido com um agente de codificação (Claude Code, modelo Claude Opus 5.5)',
       'para a Atividade 02 — Criando um Jogo.',
       '',
-      'Gráficos: caracteres. Sons: sintetizados. Imaginação: sua.',
+      'Gráficos: sprites 2D em pixel art desenhados em código (nada de imagens externas),',
+      'inspirados nos tilesets de masmorra de 16 bits. Sons: sintetizados. Imaginação: sua.',
     ]));
   }
 
   render(term: Terminal, time: number): void {
-    const logoW = Math.max(...LOGO.map((l) => l.length));
-    const lx = Math.floor((SCREEN_COLS - logoW) / 2);
-    // Logo com um brilho que "respira".
-    LOGO.forEach((line, i) => {
-      const phase = (Math.sin(time / 700 + i * 0.6) + 1) / 2;
-      const color: Color = phase > 0.75 ? 'yellow' : phase > 0.4 ? 'orange' : 'red';
-      term.print(lx, 2 + i, line, color);
-    });
-    // Tochas tremulando dos dois lados.
-    for (const [x, salt] of [[lx - 8, 1], [lx + logoW + 6, 2]] as const) {
-      const f = flicker(time, salt);
-      term.set(x, 3, f > 0.5 ? '^' : '*', FLAME[Math.floor(f * FLAME.length)]);
-      term.set(x, 4, '|', 'brown');
-      term.set(x, 5, '|', 'brown');
-    }
-    term.printCenter(8, 'Uma descida às profundezas da terra', 'lightGray');
-
-    // Portal da masmorra.
-    const gx = Math.floor((SCREEN_COLS - DUNGEON_GATE[0].length) / 2);
-    DUNGEON_GATE.forEach((l, i) => term.print(gx, 10 + i, l, 'darkGray'));
-    term.set(gx + DUNGEON_GATE[5].indexOf('>'), 15, '>', Math.floor(time / 500) % 2 ? 'white' : 'yellow');
+    // Logotipo, masmorra, herói e monstros: tudo numa cena de sprites (ver titleArt.ts).
+    drawTitleScene(term, time);
+    term.printCenter(TITLE_RECT.cy + TITLE_RECT.ch, 'Uma descida às profundezas da terra', 'lightGray');
 
     // Menu
-    const my = 17;
+    const my = TITLE_RECT.cy + TITLE_RECT.ch + 1;
     this.entries.forEach((e, i) => {
       const sel = i === this.cursor;
       const enabled = e.enabled();
-      const text = `${'abcdefgh'[i]}) ${e.label}`;
+      const text = `${'abcdefghij'[i]}) ${e.label}`;
       const x = Math.floor(SCREEN_COLS / 2) - 9;
       term.print(x, my + i, sel ? `▶ ${text}` : `  ${text}`, !enabled ? 'darkGray' : sel ? 'yellow' : 'lightGray');
     });

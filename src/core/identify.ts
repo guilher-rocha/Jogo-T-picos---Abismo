@@ -2,6 +2,8 @@ import { RNG } from '../engine/rng';
 import type { Game } from './game';
 import type { Item } from './item';
 import { ITEMS, itemBase } from '../data/items';
+import { AMULET_LOOKS, POTION_LOOKS, RING_LOOKS, SCROLL_SYLLABLES, WAND_LOOKS, isLookCategory } from '../data/appearances';
+import type { LookCategory } from '../data/appearances';
 
 /**
  * Identificação no estilo NetHack: no começo de cada partida as aparências de poções,
@@ -13,16 +15,6 @@ export interface IdState {
   /** Tipos já conhecidos. */
   known: string[];
 }
-
-const POTION_LOOKS = [
-  'borbulhante violeta', 'turva marrom', 'cintilante dourada', 'espessa verde', 'fumegante cinza', 'leitosa branca',
-  'efervescente rosa', 'oleosa negra', 'brilhante azul', 'viscosa amarela', 'gelada prateada', 'morna vermelha',
-  'fosforescente esmeralda', 'perolada', 'âmbar', 'cor de vinho', 'enevoada', 'cristalina',
-];
-const SCROLL_SYLLABLES = ['xu', 'qa', 'zab', 'mor', 'tel', 'fi', 'gra', 'nok', 'ul', 'veth', 'sar', 'kor', 'ix', 'pla', 'dun', 'eth', 'yol', 'ram'];
-const WAND_LOOKS = ['de ébano', 'de carvalho', 'de osso', 'de cristal', 'de cobre', 'de prata', 'de marfim', 'de ferro', 'de vidro', 'de jade', 'retorcida', 'de bambu'];
-const RING_LOOKS = ['de jade', 'de rubi', 'de safira', 'de ônix', 'de ferro', 'de ouro', 'de prata', 'de osso', 'de opala', 'de âmbar', 'de esmeralda'];
-const AMULET_LOOKS = ['de ossos', 'de prata trançada', 'com um olho', 'de obsidiana', 'em espiral'];
 
 const LOOK_CATEGORIES = ['potion', 'scroll', 'wand', 'ring', 'amulet'];
 
@@ -87,4 +79,15 @@ export function unknownName(game: Game, baseId: string, plural: boolean): { name
     case 'amulet': return { name: `${plural ? 'amuletos' : 'amuleto'} ${look}`, gender: 'm' };
   }
   return undefined;
+}
+
+/**
+ * Aparência sorteada de um item com "look" (poção, varinha, anel, amuleto). O sprite e a cor do texto
+ * usam sempre a aparência — antes e depois de identificar — para a cor nunca entregar o tipo verdadeiro.
+ */
+export function lookOf(game: Game, baseId: string): { cat: LookCategory; look: string } | undefined {
+  const cat = itemBase(baseId).category;
+  if (!isLookCategory(cat)) return undefined;
+  const look = game.idState?.appearances[baseId];
+  return look ? { cat, look } : undefined;
 }

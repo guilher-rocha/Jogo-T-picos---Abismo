@@ -60,7 +60,7 @@ export function runUntilPlayerTurn(game: Game): void {
 }
 
 /** Queda por alçapão: vai para o andar de baixo, num ponto aleatório. */
-function resolveFall(game: Game): void {
+export function resolveFall(game: Game): void {
   if (!game.pendingFall || game.over) return;
   game.pendingFall = false;
   enterLevel(game, game.depth + 1, 'up');
@@ -70,7 +70,7 @@ function resolveFall(game: Game): void {
 }
 
 /** Fome e combustível da luz, uma vez por turno. */
-function hungerAndFuel(game: Game): void {
+export function hungerAndFuel(game: Game): void {
   const hero = game.hero;
   const p = game.player;
   const before = hero.nutrition;
@@ -119,16 +119,23 @@ function tick(game: Game): void {
   if (game.over) return;
   hungerAndFuel(game);
   if (game.over) return;
-  const p = game.player;
+  heroRegen(game);
   if (game.turn % REGEN_INTERVAL === 0) {
-    for (const a of [p, ...level(game).actors]) if (a.hp < a.maxHp && !hasStatus(a, 'poisoned')) a.hp++;
+    for (const a of level(game).actors) if (a.hp < a.maxHp && !hasStatus(a, 'poisoned')) a.hp++;
   }
-  if (p.flags.includes('regen') && game.turn % 3 === 0 && p.hp < p.maxHp) p.hp++;
-  // Meio-orcs e trolls regeneram mais rápido.
+  // Trolls regeneram mais rápido.
   if (game.turn % 4 === 0) {
-    if (game.hero.raceId === 'half_orc' && p.hp < p.maxHp) p.hp++;
     for (const m of level(game).actors) if (m.flags.includes('regenerates') && m.hp < m.maxHp) m.hp += 2;
   }
+}
+
+/** Regeneração de vida e mana do herói (uma vez por turno). */
+export function heroRegen(game: Game): void {
+  const p = game.player;
+  if (game.turn % REGEN_INTERVAL === 0 && p.hp < p.maxHp && !hasStatus(p, 'poisoned')) p.hp++;
+  if (p.flags.includes('regen') && game.turn % 3 === 0 && p.hp < p.maxHp) p.hp++;
+  // Meio-orcs regeneram mais rápido.
+  if (game.turn % 4 === 0 && game.hero.raceId === 'half_orc' && p.hp < p.maxHp) p.hp++;
   // Mana: mais rápido com nível alto.
   const mpInterval = Math.max(3, 12 - Math.floor(p.level / 3));
   if (game.turn % mpInterval === 0 && p.mp < p.maxMp) p.mp++;

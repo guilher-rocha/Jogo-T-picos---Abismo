@@ -1,6 +1,7 @@
 import type { Screen } from '../engine/screens';
 import type { Terminal } from '../engine/terminal';
-import { wrapText } from '../engine/terminal';
+import { wrapText, visibleLength } from '../engine/terminal';
+import { registry } from '../engine/atlas';
 import { RNG, freshSeed } from '../engine/rng';
 import type { KeyInput } from '../data/keymap';
 import { RACES } from '../data/races';
@@ -10,10 +11,16 @@ import type { HeroSpec } from '../core/world';
 import { randomName } from '../gen/names';
 import type { App } from './app';
 import { SCREEN_COLS, SCREEN_ROWS } from './layout';
+import { drawHeroStage } from './heroStage';
+import { K } from '../gfx/keys';
 
 type Step = 'race' | 'class' | 'name' | 'confirm';
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? String(n) : ' 0');
+
+/** Palco do herói (à direita) e largura do texto ao lado dele. */
+const STAGE = { cx: 72, cy: 3, cw: 25, ch: 13 };
+const TEXT_W = 38;
 
 /** Criação de personagem: raça → classe → nome → resumo (r rerrola atributos). */
 export class CreationScreen implements Screen {
@@ -79,7 +86,7 @@ export class CreationScreen implements Screen {
     }
   }
 
-  render(term: Terminal): void {
+  render(term: Terminal, time: number): void {
     term.box(0, 0, SCREEN_COLS, SCREEN_ROWS, 'darkGray', this.fixed?.title ?? 'Novo personagem');
     if (this.fixed) term.print(3, 3, `Personagem do desafio: {white}${RACES[this.race].name} ${CLASSES[this.cls].name}{/}`, 'lightGray');
     const steps: [Step, string][] = [['race', 'Raça'], ['class', 'Classe'], ['name', 'Nome'], ['confirm', 'Confirmar']];
@@ -88,10 +95,27 @@ export class CreationScreen implements Screen {
       const active = id === this.step;
       sx += term.print(sx, 2, active ? `[ ${label} ]` : `  ${label}  `, active ? 'yellow' : 'darkGray') + 2;
     }
+    this.renderStage(term, time);
     if (this.step === 'race') this.renderRaces(term);
     else if (this.step === 'class') this.renderClasses(term);
     else if (this.step === 'name') this.renderName(term);
     else this.renderConfirm(term);
+  }
+
+  /** O herói escolhido, de pé numa masmorra, com o nome da raça e da classe embaixo. */
+  private renderStage(term: Terminal, time: number): void {
+    const race = RACES[this.race];
+    const cls = CLASSES[this.cls];
+    drawHeroStage(term, STAGE, race.id, cls.id, time);
+    const label = `${race.name} ${cls.name}`;
+    term.print(STAGE.cx + Math.floor((STAGE.cw - visibleLength(label)) / 2), STAGE.cy + STAGE.ch, label, 'yellow');
+    if (this.step === 'class' || this.step === 'confirm') {
+      term.print(STAGE.cx, STAGE.cy + STAGE.ch + 2, 'Equipamento inicial:', 'darkGray');
+      cls.startingItems.slice(0, 8).forEach((id, i) => {
+        const key = K.item(id);
+        if (registry.has(key)) term.icon(key, STAGE.cx + i * 3, STAGE.cy + STAGE.ch + 3, 3, 2);
+      });
+    }
   }
 
   private renderRaces(term: Terminal): void {
@@ -104,13 +128,13 @@ export class CreationScreen implements Screen {
     let y = 5;
     const x = 30;
     term.print(x, y++, r.name, 'yellow');
-    for (const l of wrapText(r.desc, 64)) term.print(x, y++, l, 'lightGray');
+    for (const l of wrapText(r.desc, TEXT_W)) term.print(x, y++, l, 'lightGray');
     y++;
     term.print(x, y++, 'Modificadores:', 'darkGray');
-    term.print(x, y++, STAT_IDS.map((s) => `${STAT_ABBR[s]} ${signed(r.mods[s])}`).join('   '), 'white');
+    term.print(x, y++, STAT_IDS.map((s) => `${STAT_ABBR[s]} ${signed(r.mods[s])}`).join('  '), 'white');
     y++;
     term.print(x, y++, 'Traços:', 'darkGray');
-    for (const l of wrapText(r.traitText, 64)) term.print(x, y++, l, 'lightCyan');
+    for (const l of wrapText(r.traitText, TEXT_W)) term.print(x, y++, l, 'lightCyan');
     term.print(3, SCREEN_ROWS - 2, '[a-f / setas] escolhe · [Enter] continua · [Esc] volta ao título', 'darkGray');
   }
 
@@ -128,15 +152,16 @@ export class CreationScreen implements Screen {
     let y = 5;
     const x = 30;
     term.print(x, y++, c.name, 'yellow');
-    for (const l of wrapText(c.desc, 64)) term.print(x, y++, l, 'lightGray');
+    for (const l of wrapText(c.desc, TEXT_W)) term.print(x, y++, l, 'lightGray');
     y++;
     term.print(x, y++, `Dado de vida d${c.hitDie} · ${c.castStat ? `conjura com ${STAT_ABBR[c.castStat]}` : 'não conjura magias'}`, 'white');
-    term.print(x, y++, 'Atributos base: ' + STAT_IDS.map((s) => `${STAT_ABBR[s]} ${c.stats[s]}`).join('  '), 'white');
+    term.print(x, y++, 'Atributos base:', 'darkGray');
+    term.print(x, y++, STAT_IDS.map((s) => `${STAT_ABBR[s]} ${String(c.stats[s]).padStart(2)}`).join('  '), 'white');
     y++;
     term.print(x, y++, 'Habilidades:', 'darkGray');
     for (const ab of c.abilities.slice(0, 4)) {
       term.print(x, y++, `${ab.name} {darkGray}(nível ${ab.level}){/}`, 'lightCyan');
-      for (const l of wrapText(ab.desc, 62)) term.print(x + 2, y++, l, 'lightGray');
+      for (const l of wrapText(ab.desc, TEXT_W - 2)) term.print(x + 2, y++, l, 'lightGray');
     }
     term.print(3, SCREEN_ROWS - 2, '[a-e / setas] escolhe · [Enter] continua · [Esc] volta', 'darkGray');
   }
@@ -159,8 +184,8 @@ export class CreationScreen implements Screen {
       term.print(5, y++, `${STAT_ABBR[s]}  {white}${String(v).padStart(2)}{/}  (${signed(statMod(v))})`, 'lightGray');
     }
     y++;
-    term.print(5, y++, `Traços: ${race.traitText}`, 'lightCyan', 'black', 90);
-    term.print(5, y++, `Equipamento: ${cls.startingItems.length} itens iniciais da classe.`, 'lightGray');
+    for (const l of wrapText(`Traços: ${race.traitText}`, 60)) term.print(5, y++, l, 'lightCyan');
+    term.print(5, y++, `Equipamento: ${cls.startingItems.length} itens iniciais da classe (veja ao lado).`, 'lightGray');
     term.print(3, SCREEN_ROWS - 2, '[Enter] começar a aventura · [r] rerrolar atributos · [Esc] volta', 'darkGray');
   }
 }

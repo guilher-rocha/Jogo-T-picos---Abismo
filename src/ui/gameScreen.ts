@@ -9,10 +9,9 @@ import { ABILITY_RULES, abilityReadyIn, activeAbilities } from '../core/abilitie
 import type { MenuEntry } from './menuScreen';
 import { DirectionPrompt, MenuScreen } from './menuScreen';
 import type { Game } from '../core/game';
-import { isFree, level, message, seesActor } from '../core/game';
+import { actorAt, isFree, level, message, seesActor } from '../core/game';
 import { DIRS8, getTile, isWalkable } from '../core/map';
 import { Tile } from '../data/tiles';
-import { formatMessage } from '../core/log';
 import { itemsAt } from '../core/item';
 import type { App } from './app';
 import { TextWindow } from './textWindow';
@@ -21,7 +20,7 @@ import { CharacterScreen } from './characterScreen';
 import { gainXp, xpForLevel } from '../core/hero';
 import { raceById } from '../data/races';
 import { AnimationQueue } from '../engine/animations';
-import { playEvents, playSounds, shake } from './effects';
+import { playEvents, playSounds, shake, trackEvents } from './effects';
 import { sound } from '../engine/sound';
 import type { Action } from '../core/actions';
 import type { ItemHost } from './itemMenus';
@@ -41,21 +40,73 @@ import { playerAction } from '../core/turn';
 import { FOOT_Y, SIDE_X } from './layout';
 import { computeScore, highScoreEntry } from '../core/score';
 import { drawMap } from './mapView';
-import { drawMessages, drawSidebar } from './hud';
+import { drawMessages, drawSidebar, messageLine } from './hud';
+import { SceneState, viewFocus } from './sceneState';
+import type { ZoomMode } from '../engine/renderer';
+import type { NetClient, StateMsg } from '../net/client';
+import { decodeSnapshot } from '../net/protocol';
+import { aliveMembers, memberById, memberTextColor, members } from '../core/party';
+
+const ZOOM_ORDER: ZoomMode[] = ['auto', 'close', 'far'];
+
+/**
+ * Perigo para a trilha: 1 com algum monstro visível caçando o jogador (ou um chefe à vista), senão 0.
+ * Liga a percussão de tensão da música da região.
+ */
+function dangerLevel(game: Game): number {
+  for (const a of level(game).actors) {
+    if (!seesActor(game, a)) continue;
+    if (a.flags.includes('boss') || a.ai.state === 'hunting') return 1;
+  }
+  return 0;
+}
 
 export class GameScreen implements Screen, ItemHost {
   private anims = new AnimationQueue();
+  /** Posições suavizadas, câmera e fantasmas: só visual, a lógica do jogo continua em tiles inteiros. */
+  private state = new SceneState();
+  private lastTime = 0;
 
-  constructor(public app: App, public game: Game) {}
+  /** Multijogador: a partida roda no servidor; aqui só chegam estados e saem ações. */
+  constructor(public app: App, public game: Game, private net?: NetClient) {}
+
+  /** Multijogador: heróis que o mundo está esperando agora. */
+  private waiting: number[] = [];
+  /** Multijogador: digitando uma mensagem para o grupo. */
+  private chatting = false;
+  private draft = '';
 
   update(dt: number): void {
     this.anims.speed = this.app.settings.animSpeed;
     this.anims.update(dt);
+    // Multijogador: aplica os estados que chegaram do servidor, em ordem.
+    if (this.net) for (let msg = this.net.states.shift(); msg; msg = this.net.states.shift()) this.applyNet(msg);
   }
 
   onEnter(): void {
+    viewFocus.point = null;
     sound.setMusicTheme(level(this.game).theme);
-    if (this.app.settings.hints && this.game.turn === 0) showHints(this.game);
+    sound.setIntensity(dangerLevel(this.game));
+    if (this.app.settings.hints && this.game.turn === 0 && !this.net) showHints(this.game);
+  }
+
+  /** Multijogador: troca a partida pelo estado recebido e anima o que aconteceu (sons, golpes, magias). */
+  applyNet(msg: StateMsg): void {
+    const prevDepth = this.game.depth;
+    this.game = decodeSnapshot(msg.snapshot, msg.you);
+    this.waiting = msg.waiting;
+    const speed = this.app.settings.animSpeed;
+    playSounds(msg.events, speed === 0 ? 0 : 1 / speed);
+    trackEvents(this.game, this.state, msg.events);
+    playEvents(this.anims, msg.events);
+    sound.setIntensity(dangerLevel(this.game));
+    if (this.game.depth !== prevDepth) sound.setMusicTheme(level(this.game).theme);
+    if (this.game.over && !this.recorded) {
+      if (this.game.over.won) sound.play('victory');
+      this.recorded = true;
+      this.overAt = performance.now();
+      this.rank = this.app.recordScore(highScoreEntry(this.game));
+    }
   }
 
   private recorded = false;
@@ -67,9 +118,19 @@ export class GameScreen implements Screen, ItemHost {
 
   /** Executa uma ação do jogador e transforma o que aconteceu em animações. */
   act(action: Action): boolean {
+    if (this.net) {
+      // Multijogador: a ação vai para o servidor; o resultado volta como estado.
+      if (this.game.over || memberById(this.game, this.game.player.id)?.dead) return false;
+      if (action.type === 'move') this.state.face(this.game.player.id, action.dx);
+      this.net.send({ t: 'action', action });
+      return true;
+    }
     const depth = this.game.depth;
+    if (action.type === 'move') this.state.face(this.game.player.id, action.dx);
     const ok = playerAction(this.game, action);
-    playSounds(this.game.events);
+    const speed = this.app.settings.animSpeed;
+    playSounds(this.game.events, speed === 0 ? 0 : 1 / speed);
+    sound.setIntensity(dangerLevel(this.game));
     if (this.app.settings.hints && ok) showHints(this.game);
     if (this.game.over?.won) sound.play('victory');
     if (this.game.depth !== depth) sound.setMusicTheme(level(this.game).theme);
@@ -78,6 +139,7 @@ export class GameScreen implements Screen, ItemHost {
       saveGame(this.game);
       this.lastSave = this.game.turn;
     }
+    trackEvents(this.game, this.state, this.game.events);
     playEvents(this.anims, this.game.events);
     if (this.game.over && !this.recorded) {
       this.recorded = true;
@@ -88,12 +150,24 @@ export class GameScreen implements Screen, ItemHost {
   }
 
   onKey(k: KeyInput): void {
+    if (k.repeat) {
+      // Tecla segurada: as repetições não pulam animações (dá para ver o que acontece) e param
+      // quando há perigo — senão o herói anda/espera dezenas de turnos sem o jogador perceber.
+      if (this.anims.busy) return;
+      const held = commandForKey(k);
+      if (held && (held.name === 'move' || held.name === 'run' || held.name === 'wait') && this.holdBlocked(held.dx ?? 0, held.dy ?? 0, held.name === 'wait')) return;
+    } else this.holdWarned = false;
     // Uma tecla durante a animação pula a animação (e o comando segue normalmente).
     if (this.anims.busy) this.anims.skipAll();
-    if (this.app.debug && this.debugKey(k)) return;
+    if (this.net && this.chatKey(k)) return;
+    if (this.app.debug && !this.net && this.debugKey(k)) return;
     if (this.game.over) {
       // Qualquer tecla (depois de um instante) mostra a tela de fim de partida.
       if (performance.now() - this.overAt > 500) this.app.gameOver(this.game, this.rank);
+      return;
+    }
+    if (k.key === 'v' && !k.ctrl && !k.alt) {
+      this.cycleZoom();
       return;
     }
     const cmd = commandForKey(k);
@@ -103,7 +177,9 @@ export class GameScreen implements Screen, ItemHost {
         this.act({ type: 'move', dx: cmd.dx!, dy: cmd.dy! });
         break;
       case 'run':
-        this.run(cmd.dx!, cmd.dy!);
+        // no multijogador o resultado de cada passo vem do servidor: correr vira um passo
+        if (this.net) this.act({ type: 'move', dx: cmd.dx!, dy: cmd.dy! });
+        else this.run(cmd.dx!, cmd.dy!);
         break;
       case 'wait':
         this.act({ type: 'wait' });
@@ -148,9 +224,11 @@ export class GameScreen implements Screen, ItemHost {
         break;
       }
       case 'explore':
+        if (this.netBlocked()) break;
         this.autoExplore();
         break;
       case 'travel':
+        if (this.netBlocked()) break;
         this.travelToStairs();
         break;
       case 'disarm':
@@ -180,9 +258,11 @@ export class GameScreen implements Screen, ItemHost {
         this.act({ type: 'search' });
         break;
       case 'rest':
+        if (this.netBlocked()) break;
         this.rest();
         break;
       case 'save':
+        if (this.netBlocked()) break;
         if (saveGame(this.game)) {
           this.app.showTitle();
         } else message(this.game, 'Não foi possível salvar (armazenamento do navegador indisponível).', 'lightRed');
@@ -200,18 +280,49 @@ export class GameScreen implements Screen, ItemHost {
         this.openAbilities();
         break;
       case 'character':
-        this.app.screens.push(new CharacterScreen(this.app, this.game));
+        this.app.screens.push(new CharacterScreen(this.app, () => this.game, (a) => this.act(a)));
         break;
       case 'look':
         this.app.screens.push(new TargetScreen(this.app, this.game, { mode: 'look', prompt: 'Olhar:' }));
         break;
       case 'messages':
-        this.app.screens.push(new TextWindow(this.app, 'Mensagens', this.game.log.map((m) => `{${m.color}}${formatMessage(m)}{/}`), { startAtEnd: true }));
+        this.app.screens.push(new TextWindow(this.app, 'Mensagens', this.game.log.map((m) => `{${m.color}}${messageLine(this.game, m)}{/}`), { startAtEnd: true }));
         break;
       case 'help':
         this.app.screens.push(new TextWindow(this.app, 'Ajuda — teclas', KEY_HELP.map(([key, desc]) => `{white}${key.padEnd(28)}{/} ${desc}`)));
         break;
     }
+  }
+
+  /** Multijogador: comandos automáticos (que dependem de resposta imediata) e salvar ficam de fora. */
+  private netBlocked(): boolean {
+    if (!this.net) return false;
+    message(this.game, 'Indisponível no multijogador.', 'darkGray');
+    return true;
+  }
+
+  /** Multijogador: Enter abre a conversa com o grupo; devolve true se a tecla foi usada aqui. */
+  private chatKey(k: KeyInput): boolean {
+    if (!this.chatting) {
+      if (k.key !== 'Enter' || k.repeat) return false;
+      this.chatting = true;
+      this.draft = '';
+      return true;
+    }
+    if (k.key === 'Escape') this.chatting = false;
+    else if (k.key === 'Enter') {
+      if (this.draft.trim()) this.net!.send({ t: 'chat', text: this.draft });
+      this.chatting = false;
+    } else if (k.key === 'Backspace') this.draft = this.draft.slice(0, -1);
+    else if (k.key.length === 1 && this.draft.length < 100) this.draft += k.key;
+    return true;
+  }
+
+  /** `v`: tamanho dos sprites na tela — automático, mais perto, mais longe. */
+  private cycleZoom(): void {
+    const s = this.app.settings;
+    s.zoom = ZOOM_ORDER[(ZOOM_ORDER.indexOf(s.zoom) + 1) % ZOOM_ORDER.length];
+    this.app.applySettings(true);
   }
 
   private openSpells(): void {
@@ -334,9 +445,33 @@ export class GameScreen implements Screen, ItemHost {
     }
   }
 
+  /** Já avisou que a tecla segurada parou (avisa uma vez por vez que a tecla é segurada). */
+  private holdWarned = false;
+
+  /**
+   * Uma tecla segurada deve parar aqui? Sim se há inimigo acordado à vista ou se o passo seria um
+   * ataque: daí em diante, só com um novo toque na tecla (como "correr", que também para).
+   */
+  private holdBlocked(dx: number, dy: number, waiting: boolean): boolean {
+    const g = this.game;
+    const target = waiting ? undefined : actorAt(g, g.player.x + dx, g.player.y + dy);
+    const attack = !!target && !target.isPlayer;
+    if (!attack && !threatsVisible(g).length) return false;
+    if (!this.holdWarned) {
+      message(g, attack ? 'Você para antes de atacar: aperte de novo para golpear.' : 'Inimigo à vista! Você para (aperte de novo para agir).', 'orange');
+      this.holdWarned = true;
+    }
+    return true;
+  }
+
   /** Corre numa direção até algo interessante acontecer. */
   private run(dx: number, dy: number): void {
     const g = this.game;
+    // Com inimigos acordados à vista, correr vira um passo só.
+    if (threatsVisible(g).length) {
+      this.act({ type: 'move', dx, dy });
+      return;
+    }
     const visibleMonsters = () => level(g).actors.filter((a) => seesActor(g, a)).length;
     const seen = visibleMonsters();
     const hp = g.player.hp;
@@ -378,6 +513,7 @@ export class GameScreen implements Screen, ItemHost {
     if (k.key === 'F7') {
       const h = this.game.hero;
       gainXp(this.game, Math.ceil((xpForLevel(h.level + 1) - h.xp) / raceById(h.raceId).xpMult));
+      trackEvents(this.game, this.state, this.game.events);
       playEvents(this.anims, this.game.events);
       return true;
     }
@@ -415,11 +551,23 @@ export class GameScreen implements Screen, ItemHost {
 
   render(term: Terminal, time: number): void {
     const game = this.game;
+    const dt = this.lastTime ? Math.min(100, Math.max(0, time - this.lastTime)) : 0;
+    this.lastTime = time;
+    const st = this.state;
+    st.focus = viewFocus.point;
+    // Multijogador: caído, a câmera acompanha um aliado de pé.
+    if (!st.focus && this.net && memberById(game, game.player.id)?.dead) {
+      const ally = aliveMembers(game)[0];
+      if (ally) st.focus = { x: ally.actor.x, y: ally.actor.y };
+    }
+    st.instant = this.app.settings.animSpeed === 0;
+    st.speed = Math.max(1, this.app.settings.animSpeed);
+    st.update(game, dt, term.view.tilesW, term.view.tilesH);
     const shaking = performance.now() < shake.until && this.app.settings.animSpeed > 0;
-    drawMap(term, game, time, shaking ? (Math.floor(time / 40) % 2 ? 1 : -1) : 0);
+    drawMap(term, game, st, time, shaking ? (Math.floor(time / 40) % 2 ? 1 : -1) : 0);
     this.anims.draw(term);
     drawMessages(term, game);
-    drawSidebar(term, game);
+    drawSidebar(term, game, time);
     if (this.app.debug) term.print(SIDE_X, FOOT_Y - 1, `seed ${game.seed}`, 'lightMagenta');
     const score = computeScore(game).total;
     const best = Math.max(score, this.app.highScores[0]?.score ?? 0);
@@ -430,8 +578,22 @@ export class GameScreen implements Screen, ItemHost {
       const rank = this.rank >= 0 ? ` {gold}${this.rank + 1}º lugar no quadro de recordes!{/}` : '';
       const head = game.over.won ? '{gold}VITÓRIA!{/}' : '{red}Você morreu{/}';
       term.print(0, FOOT_Y + 1, `${head} (${game.over.cause}) — ${score} pontos.${rank} {white}[tecla]{/} continuar`, 'lightGray');
+    } else if (this.net) {
+      term.print(0, FOOT_Y + 1, this.chatting ? `{yellow}Para o grupo:{/} ${this.draft}${Math.floor(time / 400) % 2 ? '_' : ' '}  {darkGray}[Enter] enviar · [Esc] cancelar{/}` : this.turnLine(), 'darkGray', 'black', 98);
     } else {
       term.print(0, FOOT_Y + 1, 'Mova/ataque com {white}hjklyubn{/}/{white}setas{/}/{white}numpad{/} · {white}i{/} inventário · {white}?{/} ajuda', 'darkGray');
     }
+  }
+
+  /** Multijogador: de quem é a vez (e lembrete das teclas do grupo). */
+  private turnLine(): string {
+    const g = this.game;
+    const me = g.player.id;
+    const conn = this.net!.status === 'open' ? '' : ' {lightRed}(sem conexão — tentando de novo){/}';
+    if (memberById(g, me)?.dead) return `{red}Você caiu.{/} Volta com metade da vida quando o grupo descer a escada.${conn}`;
+    const others = this.waiting.filter((id) => id !== me).map((id) => memberById(g, id)).filter((m) => !!m).map((m) => `{${memberTextColor(g, m!.id)}}${m!.name}{/}`);
+    const mine = this.waiting.includes(me) ? '{lightGreen}Sua vez!{/}' : others.length ? `Esperando ${others.join(', ')}...` : '';
+    const solo = members(g).length > 1 ? ' · {white}Enter{/} conversar' : '';
+    return `${mine}${mine && others.length && this.waiting.includes(me) ? ` (falta também ${others.join(', ')})` : ''}${solo} · {white}?{/} ajuda${conn}`;
   }
 }

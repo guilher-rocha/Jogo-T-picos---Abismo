@@ -1,5 +1,9 @@
 import { Terminal } from './engine/terminal';
 import { CanvasRenderer } from './engine/renderer';
+import { Atlas } from './engine/atlas';
+import { FxLabScreen } from './ui/fxLab';
+import { allEntries } from './gfx/library';
+import { MAP_X, MAP_Y } from './ui/layout';
 import { ScreenManager } from './engine/screens';
 import type { KeyInput } from './data/keymap';
 import { SCREEN_COLS, SCREEN_ROWS } from './ui/layout';
@@ -18,6 +22,9 @@ import { GameOverScreen } from './ui/gameOverScreen';
 import { morgueLines } from './core/morgue';
 import { deleteSave, hasSave, loadGame, loadHighScores, loadSettings, saveGame, saveHighScores, saveSettings } from './persist/save';
 import { DEFAULT_SETTINGS, OptionsScreen } from './ui/optionsScreen';
+import { LobbyScreen } from './ui/lobbyScreen';
+import { activeNet, startNet } from './net/client';
+import { serverUrl } from './net/protocol';
 import { themeById } from './engine/themes';
 import { dailyChallenge, todayString } from './core/challenge';
 import { CodeEntryScreen } from './ui/codeEntryScreen';
@@ -27,6 +34,9 @@ import { message } from './core/game';
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const term = new Terminal(SCREEN_COLS, SCREEN_ROWS);
 const renderer = new CanvasRenderer(canvas, term);
+// Todos os sprites são desenhados em código (pixel art procedural) e empacotados num atlas na largada.
+renderer.setAtlas(new Atlas(allEntries()));
+renderer.setSceneRect({ cx: MAP_X, cy: MAP_Y, cw: 80, ch: 24 });
 const screens = new ScreenManager();
 window.addEventListener('resize', () => renderer.resize());
 
@@ -87,12 +97,26 @@ const app: App = {
       screens.replace(new CreationScreen(app, (spec) => startGame(spec, c.seed, { target: c.score }), { raceId: c.raceId, classId: c.classId, title: 'Desafio de um amigo' }));
     }));
   },
+  multiplayer: () => {
+    screens.replace(new CreationScreen(app, (spec) => {
+      const lan = (window as unknown as { __ABISMO_LAN__?: boolean }).__ABISMO_LAN__ === true;
+      screens.replace(new LobbyScreen(app, startNet(serverUrl(location, lan), spec)));
+    }, undefined));
+  },
+  backToLobby: () => {
+    const net = activeNet();
+    if (!net) return false;
+    screens.replace(new LobbyScreen(app, net));
+    return true;
+  },
   showOptions: () => screens.push(new OptionsScreen(app, () => screens.pop())),
   settings: loadSettings(DEFAULT_SETTINGS),
   applySettings: (save: boolean) => {
     renderer.setTheme(themeById(app.settings.theme));
+    renderer.setZoom(app.settings.zoom);
     sound.sfxVolume = app.settings.sfx / 10;
-    sound.musicOn = app.settings.music;
+    sound.musicOn = app.settings.music && app.settings.musicVol > 0;
+    sound.musicVolume = app.settings.musicVol / 10;
     sound.applyVolumes();
     if (save) saveSettings(app.settings);
   },
@@ -121,7 +145,18 @@ window.addEventListener('beforeunload', () => {
 app.applySettings(false);
 
 // ?quick=1 pula título e criação (útil para testes); ?class=mage&race=elf escolhe a combinação.
-if (quick) startGame({ ...DEFAULT_HERO, classId: classParam ?? DEFAULT_HERO.classId, raceId: raceParam ?? DEFAULT_HERO.raceId });
+// ?fxlab=1&page=0&t=0.4 abre o laboratório de efeitos (ferramenta de revisão das animações).
+if (params.get('fxlab') === '1') {
+  const t = params.get('t');
+  screens.replace(new FxLabScreen(app, Number(params.get('page') ?? 0), t !== null ? Number(t) : null));
+} else if (params.get('lan') === '1') {
+  // ?lan=1 abre o multijogador; com &quick=1&name=Ana&class=mage entra direto na sala (testes).
+  if (quick) {
+    const lan = (window as unknown as { __ABISMO_LAN__?: boolean }).__ABISMO_LAN__ === true;
+    const spec = { ...DEFAULT_HERO, name: params.get('name') ?? DEFAULT_HERO.name, classId: classParam ?? DEFAULT_HERO.classId, raceId: raceParam ?? DEFAULT_HERO.raceId };
+    screens.replace(new LobbyScreen(app, startNet(serverUrl(location, lan), spec)));
+  } else app.multiplayer();
+} else if (quick) startGame({ ...DEFAULT_HERO, classId: classParam ?? DEFAULT_HERO.classId, raceId: raceParam ?? DEFAULT_HERO.raceId });
 else app.showTitle();
 
 /** Teclas que o navegador usaria para outra coisa (rolar a página, etc.). */
@@ -132,7 +167,7 @@ window.addEventListener('keydown', (e) => {
   if (PREVENT.has(e.key) || e.key.length === 1 || (debug && /^F\d+$/.test(e.key))) e.preventDefault();
   if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
   sound.unlock();
-  const k: KeyInput = { key: e.key, code: e.code, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey };
+  const k: KeyInput = { key: e.key, code: e.code, shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, repeat: e.repeat };
   screens.onKey(k);
 });
 // Clique também conta como "interagir" (tela de título, demonstração).

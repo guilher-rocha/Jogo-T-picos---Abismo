@@ -1,12 +1,62 @@
 import type { Color } from './colors';
+import type { Scene } from './scene';
 
-/** Buffer de células de um "terminal" ASCII. Não depende de DOM (testável). */
+/** Ícone (sprite) desenhado por cima de um retângulo de células: retratos no painel, itens, pré-visualização. */
+export interface IconCmd {
+  key: string;
+  frame: number;
+  /** Retângulo em células. */
+  cx: number;
+  cy: number;
+  cw: number;
+  ch: number;
+  flip?: boolean;
+  alpha?: number;
+  /** 'center' (padrão) ou 'bottom' (pés encostados na borda de baixo). */
+  align?: 'center' | 'bottom';
+  /** Escala máxima (inteira); padrão: a maior que couber. */
+  maxScale?: number;
+  /** Cor de fundo (CSS) pintada atrás do sprite, no retângulo todo. */
+  backdrop?: string;
+}
+
+/** Minimapa: uma imagem RGBA (1 pixel por tile) desenhada num retângulo de células. */
+export interface MinimapData {
+  cx: number;
+  cy: number;
+  cw: number;
+  ch: number;
+  w: number;
+  h: number;
+  data: Uint8ClampedArray;
+}
+
+/** Informações sobre a janela do mapa em sprites; o renderizador escreve, a tela do jogo lê. */
+export interface ViewInfo {
+  /** Quantos tiles cabem na janela do mapa (fracionário). */
+  tilesW: number;
+  tilesH: number;
+  /** Pixels de tela por pixel de sprite. */
+  scale: number;
+}
+
+/**
+ * Buffer de células de um "terminal" ASCII. Não depende de DOM (testável).
+ * Além das células de texto, carrega uma cena de sprites (o mapa), "buracos" por onde a cena aparece,
+ * ícones e um minimapa — o renderizador junta tudo.
+ */
 export class Terminal {
   readonly cols: number;
   readonly rows: number;
   readonly glyphs: string[];
   readonly fg: Color[];
   readonly bg: Color[];
+  /** 1 = célula transparente (a cena de sprites aparece por baixo). Qualquer escrita na célula a torna opaca. */
+  readonly holes: Uint8Array;
+  scene: Scene | null = null;
+  icons: IconCmd[] = [];
+  minimap: MinimapData | null = null;
+  view: ViewInfo = { tilesW: 24, tilesH: 13, scale: 1 };
 
   constructor(cols: number, rows: number) {
     this.cols = cols;
@@ -15,6 +65,38 @@ export class Terminal {
     this.glyphs = new Array(n).fill(' ');
     this.fg = new Array(n).fill('lightGray');
     this.bg = new Array(n).fill('black');
+    this.holes = new Uint8Array(n);
+  }
+
+  /** Deixa o retângulo transparente: a cena de sprites aparece ali (até alguém escrever nas células). */
+  hole(x: number, y: number, w: number, h: number): void {
+    for (let j = y; j < y + h; j++) {
+      for (let i = x; i < x + w; i++) {
+        if (!this.inBounds(i, j)) continue;
+        const k = j * this.cols + i;
+        this.glyphs[k] = ' ';
+        this.fg[k] = 'lightGray';
+        this.bg[k] = 'black';
+        this.holes[k] = 1;
+      }
+    }
+  }
+
+  /**
+   * Pede um sprite do atlas desenhado no retângulo de células (centralizado, em escala inteira).
+   * As células viram "buracos": se uma janela escrever por cima depois, o ícone deixa de ser desenhado.
+   */
+  icon(key: string, cx: number, cy: number, cw: number, ch: number, extra: Partial<IconCmd> = {}): void {
+    this.hole(cx, cy, cw, ch);
+    this.icons.push({ key, frame: 0, cx, cy, cw, ch, ...extra });
+  }
+
+  /** Todas as células do retângulo ainda são buracos (ninguém escreveu por cima)? */
+  isHole(x: number, y: number, w: number, h: number): boolean {
+    for (let j = y; j < y + h; j++) {
+      for (let i = x; i < x + w; i++) if (!this.inBounds(i, j) || !this.holes[j * this.cols + i]) return false;
+    }
+    return true;
   }
 
   inBounds(x: number, y: number): boolean {
@@ -27,6 +109,7 @@ export class Terminal {
     this.glyphs[i] = glyph;
     this.fg[i] = fg;
     this.bg[i] = bg;
+    this.holes[i] = 0;
   }
 
   get(x: number, y: number): { glyph: string; fg: Color; bg: Color } {
@@ -74,6 +157,10 @@ export class Terminal {
 
   clear(): void {
     this.fill(0, 0, this.cols, this.rows);
+    this.holes.fill(0);
+    this.scene = null;
+    this.icons = [];
+    this.minimap = null;
   }
 
   /** Caixa com borda de linha simples e título opcional. */
